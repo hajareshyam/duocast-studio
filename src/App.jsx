@@ -39,6 +39,12 @@ export default function App() {
   const [showTitle, setShowTitle] = useState('Live Travel & Mom-Life Talk 🎙️');
   const [tickerEnabled, setTickerEnabled] = useState(true);
   const [tickerText, setTickerText] = useState('✨ Follow @traveller.risha for daily travel hacks & mom-life reels!');
+  const [tickerPosition, setTickerPosition] = useState('dual'); // 'dual' (both screens) | 'center' | 'bottom'
+  const [videoFilter, setVideoFilter] = useState('none'); // 'none' | 'warm' | 'teal-orange' | 'noir' | 'cyberpunk'
+  const [featuredQuestion, setFeaturedQuestion] = useState('Q: What is your #1 packing secret for long flights? ✈️');
+  const [isQuestionVisible, setIsQuestionVisible] = useState(false);
+  const [micGain, setMicGain] = useState(1.0);
+  const [visualEffects, setVisualEffects] = useState([]);
 
   // --- Hardware & Media State ---
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -157,8 +163,14 @@ export default function App() {
       }
       const streamOnlyAudio = new MediaStream([audioTrack]);
       const source = mixer.audioCtx.createMediaStreamSource(streamOnlyAudio);
-      source.connect(mixer.localAnalyser);
-      source.connect(mixer.delayNode);
+      if (mixer.micGainNode) {
+        source.connect(mixer.micGainNode);
+        mixer.micGainNode.connect(mixer.localAnalyser);
+        mixer.micGainNode.connect(mixer.delayNode);
+      } else {
+        source.connect(mixer.localAnalyser);
+        source.connect(mixer.delayNode);
+      }
       localAudioSourceRef.current = source;
     } catch (e) {
       console.warn('Audio mixer attach error:', e);
@@ -405,7 +417,12 @@ export default function App() {
         showTitle,
         tickerEnabled,
         tickerText,
-        tickerOffsetRef
+        tickerOffsetRef,
+        tickerPosition,
+        videoFilter,
+        featuredQuestion,
+        isQuestionVisible,
+        visualEffects
       });
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -422,8 +439,20 @@ export default function App() {
     guestName,
     showTitle,
     tickerEnabled,
-    tickerText
+    tickerText,
+    tickerPosition,
+    videoFilter,
+    featuredQuestion,
+    isQuestionVisible,
+    visualEffects
   ]);
+
+  // --- Mic Gain Preamp Sync ---
+  useEffect(() => {
+    if (audioMixerRef.current?.micGainNode) {
+      audioMixerRef.current.micGainNode.gain.value = micGain;
+    }
+  }, [micGain]);
 
   // --- Lip-Sync Audio Delay Slider Sync ---
   useEffect(() => {
@@ -814,6 +843,32 @@ export default function App() {
     if (mixer) {
       playStudioSFX(mixer.audioCtx, mixer.compressor, sfxId);
       showToast(`Sound FX: ${sfxId}`, 'info');
+
+      // Trigger visual emoji reaction burst on canvas
+      const emojiMap = {
+        applause: '👏',
+        ding: '🔔',
+        airhorn: '🚨',
+        drumroll: '🥁',
+        laugh: '😂',
+        chime: '✨'
+      };
+      const emoji = emojiMap[sfxId] || '🎉';
+      const cw = canvasRef.current?.width || 1080;
+      const ch = canvasRef.current?.height || 1920;
+      const newEffects = [];
+      for (let i = 0; i < 6; i++) {
+        newEffects.push({
+          id: Math.random(),
+          emoji,
+          x: Math.round(cw * 0.2 + Math.random() * (cw * 0.6)),
+          y: Math.round(ch * 0.65 + Math.random() * (ch * 0.25)),
+          start: Date.now() + i * 70,
+          duration: 1700,
+          size: 40 + Math.random() * 22
+        });
+      }
+      setVisualEffects((prev) => [...prev.slice(-12), ...newEffects]);
     }
   };
 
@@ -900,6 +955,14 @@ export default function App() {
         onChangeTickerText={setTickerText}
         tickerEnabled={tickerEnabled}
         onToggleTicker={() => setTickerEnabled(t => !t)}
+        tickerPosition={tickerPosition}
+        onChangeTickerPosition={setTickerPosition}
+        videoFilter={videoFilter}
+        onChangeVideoFilter={setVideoFilter}
+        featuredQuestion={featuredQuestion}
+        onChangeFeaturedQuestion={setFeaturedQuestion}
+        isQuestionVisible={isQuestionVisible}
+        onToggleQuestion={() => setIsQuestionVisible(v => !v)}
       />
 
       {/* Teleprompter Drawer */}
@@ -994,6 +1057,8 @@ export default function App() {
         onChangeFramerate={setFramerate}
         audioDelay={audioDelay}
         onChangeAudioDelay={setAudioDelay}
+        micGain={micGain}
+        onChangeMicGain={setMicGain}
         micLevel={micLevel}
       />
 

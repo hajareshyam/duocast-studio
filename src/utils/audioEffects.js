@@ -16,6 +16,10 @@ export function createAudioMixerContext() {
   compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
   compressor.connect(audioDestination);
 
+  // Mic Gain Boost Node (1.0x to 2.5x)
+  const micGainNode = audioCtx.createGain();
+  micGainNode.gain.value = 1.0;
+
   // Audio Delay Node for Lip-Sync calibration (0 to 500ms)
   const delayNode = audioCtx.createDelay(1.0);
   delayNode.delayTime.value = 0;
@@ -32,6 +36,7 @@ export function createAudioMixerContext() {
     audioCtx,
     audioDestination,
     compressor,
+    micGainNode,
     delayNode,
     localAnalyser,
     remoteAnalyser

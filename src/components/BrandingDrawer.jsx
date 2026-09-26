@@ -21,13 +21,21 @@ export default function BrandingDrawer({
   tickerText,
   onChangeTickerText,
   tickerEnabled,
-  onToggleTicker
+  onToggleTicker,
+  tickerPosition,
+  onChangeTickerPosition,
+  videoFilter,
+  onChangeVideoFilter,
+  featuredQuestion,
+  onChangeFeaturedQuestion,
+  isQuestionVisible,
+  onToggleQuestion
 }) {
   return (
     <aside className={`branding-bar glass-card ${isOpen ? 'is-open' : ''}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-bright)' }}>
-          🎨 Studio Branding & Graphics
+          🎨 Studio Branding, Shaders & Ticker Controls
         </h4>
         <button onClick={onClose} className="btn-close" title="Close Drawer">&times;</button>
       </div>
@@ -81,6 +89,38 @@ export default function BrandingDrawer({
           </select>
         </div>
 
+        {/* Video Filter Shader Presets */}
+        <div className="input-group">
+          <label htmlFor="videoFilterSelect">Camera Filter FX:</label>
+          <select
+            id="videoFilterSelect"
+            className="select-styled select-sm"
+            value={videoFilter}
+            onChange={(e) => onChangeVideoFilter(e.target.value)}
+          >
+            <option value="none">📷 Natural Camera</option>
+            <option value="warm">🌅 Studio Warmth (Golden Glow)</option>
+            <option value="teal-orange">🎬 Cinematic Teal & Orange</option>
+            <option value="noir">🎞️ Classic Noir (B&W)</option>
+            <option value="cyberpunk">⚡ Cyberpunk Vivid</option>
+          </select>
+        </div>
+
+        {/* Scrolling Ticker Position Option */}
+        <div className="input-group">
+          <label htmlFor="tickerPositionSelect">Ticker Placement:</label>
+          <select
+            id="tickerPositionSelect"
+            className="select-styled select-sm"
+            value={tickerPosition}
+            onChange={(e) => onChangeTickerPosition(e.target.value)}
+          >
+            <option value="dual">👥 Dual Screens (Under Both Host & Co-Host)</option>
+            <option value="center">⚡ Center Divider (Between Feeds)</option>
+            <option value="bottom">📍 Bottom Edge Only</option>
+          </select>
+        </div>
+
         <div className="topic-presets-container">
           <span className="presets-label">Quick Topics:</span>
           <div className="topic-chips">
@@ -97,6 +137,7 @@ export default function BrandingDrawer({
           </div>
         </div>
 
+        {/* Scrolling Ticker Text Input & Toggle */}
         <div className="input-group input-group-full">
           <label htmlFor="tickerTextInput">Scrolling Ticker:</label>
           <input
@@ -104,7 +145,7 @@ export default function BrandingDrawer({
             id="tickerTextInput"
             value={tickerText}
             onChange={(e) => onChangeTickerText(e.target.value)}
-            placeholder="Bottom scrolling marquee text..."
+            placeholder="Scrolling marquee text across screens..."
           />
           <button
             type="button"
@@ -113,6 +154,26 @@ export default function BrandingDrawer({
             style={{ whiteSpace: 'nowrap' }}
           >
             Ticker: {tickerEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        {/* Live Question / Viewer Comment Card Overlay */}
+        <div className="input-group input-group-full">
+          <label htmlFor="questionInput">Highlight Audience Question / Card:</label>
+          <input
+            type="text"
+            id="questionInput"
+            value={featuredQuestion}
+            onChange={(e) => onChangeFeaturedQuestion(e.target.value)}
+            placeholder="e.g. Q: What is your #1 packing secret for international travel?"
+          />
+          <button
+            type="button"
+            onClick={onToggleQuestion}
+            className={`btn ${isQuestionVisible ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {isQuestionVisible ? 'Hide Question' : 'Show on Stage'}
           </button>
         </div>
       </div>

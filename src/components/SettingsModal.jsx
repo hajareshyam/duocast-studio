@@ -15,6 +15,8 @@ export default function SettingsModal({
   onChangeFramerate,
   audioDelay,
   onChangeAudioDelay,
+  micGain,
+  onChangeMicGain,
   micLevel
 }) {
   if (!isOpen) return null;
@@ -69,6 +71,28 @@ export default function SettingsModal({
                 style={{ width: `${Math.round(micLevel * 100)}%` }}
               ></div>
             </div>
+          </div>
+
+          <div className="setting-item">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label htmlFor="micGainSlider">Microphone Boost (Preamp Gain):</label>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#a5b4fc', fontWeight: 700 }}>
+                {micGain?.toFixed(1) || '1.0'}x
+              </span>
+            </div>
+            <input
+              type="range"
+              id="micGainSlider"
+              min="1.0"
+              max="2.5"
+              step="0.1"
+              value={micGain || 1.0}
+              onChange={(e) => onChangeMicGain(parseFloat(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
+            />
+            <small style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+              Boost quiet microphones cleanly with automated studio limiting.
+            </small>
           </div>
 
           <div className="setting-item">
