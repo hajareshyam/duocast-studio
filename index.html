@@ -44,6 +44,7 @@
           <option value="pip">🔲 Picture-in-Picture</option>
           <option value="solo-host">👤 Solo Host</option>
           <option value="solo-guest">👤 Solo Co-Host</option>
+          <option value="screen-duo">🖥️ Screen + Duo</option>
         </select>
         <button id="layoutToggleBtn" class="btn btn-secondary btn-icon" title="Toggle Aspect Ratio (9:16 Reels / 16:9 Landscape)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -60,11 +61,17 @@
           </svg>
           <span id="chatBadgeCount" class="badge-dot hidden" style="position: absolute; top: 4px; right: 4px; background: #ec4899;"></span>
         </button>
+        <button id="prompterToggleBtn" class="btn btn-ghost btn-icon" title="Teleprompter & Script Notes">
+          📝
+        </button>
         <button id="brandingToggleBtn" class="btn btn-ghost btn-icon" title="Edit Names, Topic & Ticker">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
+        </button>
+        <button id="hotkeysModalBtn" class="btn btn-ghost btn-icon" title="Keyboard Shortcuts Cheat-Sheet">
+          ⌨️
         </button>
         <button id="settingsModalBtn" class="btn btn-ghost btn-icon" title="Audio/Video Settings & Lip-Sync">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -123,6 +130,7 @@
         <div class="hidden-media-sinks" aria-hidden="true">
           <video id="localVideo" autoplay playsinline webkit-playsinline muted></video>
           <video id="remoteVideo" autoplay playsinline webkit-playsinline muted></video>
+          <video id="screenVideo" autoplay playsinline webkit-playsinline muted></video>
         </div>
       </section>
 
@@ -161,6 +169,16 @@
             <span>Camera</span>
           </button>
 
+          <!-- Screen Share Toggle -->
+          <button id="toggleScreenBtn" class="control-btn" title="Share Screen or Slide Deck">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span id="screenBtnLabel">Screen</span>
+          </button>
+
           <!-- Switch Camera (Mobile Front/Back) -->
           <button id="flipCameraBtn" class="control-btn" title="Flip Camera (Front / Back)">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -190,6 +208,18 @@
             <span id="recordBtnLabel">Record</span>
           </button>
 
+          <!-- Pause / Resume Recording Button (Host Only) -->
+          <button id="pauseRecordBtn" class="control-btn pause-rec-btn hidden" title="Pause or Resume Recording">
+            <svg id="pauseIcon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            <svg id="resumeIcon" class="icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span id="pauseBtnLabel">Pause</span>
+          </button>
+
           <!-- Guest Read-Only Recording Status Badge -->
           <div id="guestRecordBadge" class="control-btn guest-rec-badge hidden" title="Only the room owner can start/stop recording">
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -216,6 +246,24 @@
         <div class="input-group">
           <label for="topicInput">Show / Reel Title:</label>
           <input type="text" id="topicInput" value="Live Travel & Mom-Life Talk 🎙️" placeholder="Optional Title">
+        </div>
+        <div class="input-group">
+          <label for="studioThemeSelect">Studio Theme:</label>
+          <select id="studioThemeSelect" class="select-styled select-sm">
+            <option value="theme-indigo" selected>✨ Studio Indigo</option>
+            <option value="theme-cyberpunk">🔮 Cyberpunk Neon</option>
+            <option value="theme-sunset">🌅 Sunset Rose Gold</option>
+            <option value="theme-emerald">🌿 Emerald Slate</option>
+          </select>
+        </div>
+        <div class="topic-presets-container">
+          <span class="presets-label">Quick Topics:</span>
+          <div class="topic-chips">
+            <button type="button" class="topic-chip" data-topic="Travel Hacks & Packing Tips ✈️">✈️ Travel</button>
+            <button type="button" class="topic-chip" data-topic="Mom Life & Parenting Realities 🤱">🤱 Mom Life</button>
+            <button type="button" class="topic-chip" data-topic="Live Podcast & Fan Q&A 🎙️">🎙️ Podcast</button>
+            <button type="button" class="topic-chip" data-topic="Weekend Getaways & Hidden Gems 🗺️">🗺️ Getaways</button>
+          </div>
         </div>
         <div class="input-group input-group-full">
           <label for="tickerTextInput">Scrolling Ticker:</label>
@@ -306,6 +354,15 @@
               </svg>
               <span>Download Video (.mp4 / .webm)</span>
             </a>
+            <a id="downloadAudioAnchor" class="btn btn-secondary" download="DuoCast_Podcast_Audio.wav">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+              <span>Audio Only (.wav)</span>
+            </a>
             <button id="discardVideoBtn" class="btn btn-ghost">Close</button>
           </div>
         </div>
@@ -327,6 +384,20 @@
           <div class="setting-item">
             <label for="microphoneSelect">Microphone Source:</label>
             <select id="microphoneSelect" class="select-styled"></select>
+          </div>
+          <div class="setting-item">
+            <label>Live Mic Input Test:</label>
+            <div class="mic-test-track">
+              <div id="micTestBar" class="mic-test-fill"></div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <label for="audioProfileSelect">Audio Quality DSP:</label>
+            <select id="audioProfileSelect" class="select-styled">
+              <option value="broadcast" selected>🎙️ Studio Broadcast (Compressor + Limiter)</option>
+              <option value="warmth">📻 Warm Podcast EQ</option>
+              <option value="raw">⚡ Clean Raw Stream</option>
+            </select>
           </div>
           <div class="setting-item">
             <label for="frameRateSelect">Video Framerate:</label>
@@ -449,6 +520,67 @@
           <span class="sfx-emoji">✨</span>
           <span class="sfx-name">Magic Chime</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Creator Teleprompter Drawer -->
+    <div id="teleprompterDrawer" class="teleprompter-drawer glass-card hidden">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>📝 Creator Teleprompter</span>
+        </div>
+        <div class="prompter-quick-controls">
+          <button type="button" id="toggleScrollPrompterBtn" class="btn btn-primary btn-sm">▶️ Scroll</button>
+          <button type="button" id="resetScrollPrompterBtn" class="btn btn-ghost btn-sm">⏮️ Top</button>
+          <button type="button" id="closePrompterBtn" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="prompter-controls-bar">
+        <div class="prompter-control-group">
+          <label for="prompterSpeedRange">Speed: <span id="prompterSpeedVal">2x</span></label>
+          <input type="range" id="prompterSpeedRange" min="1" max="6" step="1" value="2">
+        </div>
+        <div class="prompter-control-group">
+          <label for="prompterFontSizeRange">Font: <span id="prompterFontVal">18px</span></label>
+          <input type="range" id="prompterFontSizeRange" min="14" max="32" step="2" value="18">
+        </div>
+      </div>
+      <div id="prompterContent" class="prompter-body" contenteditable="true" spellcheck="false">
+🎙️ HOOK (0-3 sec):
+"Stop packing like it's 2015! Here are the 3 travel hacks that saved my sanity with kids..."
+
+✨ POINT 1:
+The 2-bag rule for international flights — never check essential gear or kid medicines.
+
+✨ POINT 2:
+Offline maps & digital backup of passports in secure cloud notes.
+
+✨ CALL TO ACTION:
+"Drop your favorite holiday spot in the comments below, and share this with your travel partner!"
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="hotkeysModal" class="modal-backdrop hidden">
+      <div class="modal-card glass-card">
+        <div class="modal-header">
+          <h3>⌨️ Stream Deck Hotkeys</h3>
+          <button id="closeHotkeysBtn" class="btn-close">&times;</button>
+        </div>
+        <div class="hotkeys-grid">
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>Space</kbd> / <kbd>M</kbd></div> <span>Toggle Mic Mute</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>V</kbd></div> <span>Toggle Camera</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>R</kbd></div> <span>Start / Stop Recording</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>P</kbd></div> <span>Pause / Resume</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>1</kbd> - <kbd>5</kbd></div> <span>Switch Video Layouts</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>S</kbd></div> <span>Toggle Soundboard</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>C</kbd></div> <span>Toggle Backstage Chat</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>T</kbd></div> <span>Toggle Teleprompter</span></div>
+          <div class="hotkey-row"><div class="hotkey-keys"><kbd>?</kbd></div> <span>Show Shortcuts Cheat-Sheet</span></div>
+        </div>
+        <div class="modal-footer">
+          <button id="gotItHotkeysBtn" class="btn btn-primary">Close</button>
+        </div>
       </div>
     </div>
 

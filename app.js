@@ -23,13 +23,15 @@
     // Media Streams
     localStream: null,
     remoteStream: null,
-    facingMode: 'user',    // 'user' or 'environment'
+    screenStream: null,       // Screen share or slide deck feed
+    isScreenSharing: false,
+    facingMode: 'user',       // 'user' or 'environment'
     isMicMuted: false,
     isCamOff: false,
     
     // Layout
     layoutMode: 'vertical',   // 'vertical' (9:16) or 'landscape' (16:9)
-    studioLayout: 'split',    // 'split', 'pip', 'solo-host', 'solo-guest'
+    studioLayout: 'split',    // 'split', 'pip', 'solo-host', 'solo-guest', 'screen-duo'
     swapPositions: false,     // swap local & remote feeds
     
     // Audio Context Mixer & Sync
@@ -37,8 +39,11 @@
     audioDestination: null,
     localAudioSource: null,
     remoteAudioSource: null,
+    screenAudioSource: null,
     audioDelayNode: null,
     audioDelayMs: 0,
+    audioCompressor: null,    // Dynamics compressor for studio-grade limiting
+    audioProfile: 'broadcast', // 'broadcast', 'warmth', 'raw'
     localAnalyser: null,
     remoteAnalyser: null,
     localVolume: 0,
@@ -48,21 +53,30 @@
     mediaRecorder: null,
     recordedChunks: [],
     isRecording: false,
+    isRecordingPaused: false, // Pause / resume recording
     isCountingDown: false,
     recordStartTime: 0,
     recordTimerInterval: null,
     recordedBlob: null,
     
-    // Branding & Lower-Third Ticker
+    // Teleprompter
+    prompterSpeed: 2,
+    prompterFontSize: 18,
+    isPrompterScrolling: false,
+    prompterScrollInterval: null,
+    
+    // Branding, Lower-Third Ticker & Theme
     hostName: '@traveller.risha',
     guestName: '@guest.creator',
     showTitle: 'Live Travel & Mom-Life Talk 🎙️',
+    studioTheme: 'theme-indigo',
     tickerEnabled: true,
     tickerText: '✨ Follow @traveller.risha for daily travel hacks & mom-life reels!',
     tickerOffset: 0,
 
     // Chat
-    unreadChatCount: 0
+    unreadChatCount: 0,
+    micTestInterval: null
   };
 
   // --- DOM Elements ---
@@ -72,6 +86,7 @@
   
   const localVideo = document.getElementById('localVideo');
   const remoteVideo = document.getElementById('remoteVideo');
+  const screenVideo = document.getElementById('screenVideo');
   
   // Status Badges
   const connectionStatusBadge = document.getElementById('connectionStatusBadge');
@@ -89,7 +104,9 @@
   const soundboardToggleBtn = document.getElementById('soundboardToggleBtn');
   const chatToggleBtn = document.getElementById('chatToggleBtn');
   const chatBadgeCount = document.getElementById('chatBadgeCount');
+  const prompterToggleBtn = document.getElementById('prompterToggleBtn');
   const brandingToggleBtn = document.getElementById('brandingToggleBtn');
+  const hotkeysModalBtn = document.getElementById('hotkeysModalBtn');
   const settingsModalBtn = document.getElementById('settingsModalBtn');
   const guideModalBtn = document.getElementById('guideModalBtn');
   const copyInviteBtn = document.getElementById('copyInviteBtn');
@@ -98,10 +115,16 @@
   // Floating Control Bar
   const toggleMicBtn = document.getElementById('toggleMicBtn');
   const toggleCamBtn = document.getElementById('toggleCamBtn');
+  const toggleScreenBtn = document.getElementById('toggleScreenBtn');
+  const screenBtnLabel = document.getElementById('screenBtnLabel');
   const flipCameraBtn = document.getElementById('flipCameraBtn');
   const swapLayoutBtn = document.getElementById('swapLayoutBtn');
   const recordToggleBtn = document.getElementById('recordToggleBtn');
   const recordBtnLabel = document.getElementById('recordBtnLabel');
+  const pauseRecordBtn = document.getElementById('pauseRecordBtn');
+  const pauseIcon = document.getElementById('pauseIcon');
+  const resumeIcon = document.getElementById('resumeIcon');
+  const pauseBtnLabel = document.getElementById('pauseBtnLabel');
   const guestRecordBadge = document.getElementById('guestRecordBadge');
   const guestRecordLabel = document.getElementById('guestRecordLabel');
 
@@ -115,13 +138,14 @@
   const enterStudioBtn = document.getElementById('enterStudioBtn');
   const closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
 
-  // Branding Drawer Inputs
+  // Branding Drawer Inputs & Theme
   const brandingBar = document.querySelector('.branding-bar');
   const hostNameInput = document.getElementById('hostNameInput');
   const guestNameInput = document.getElementById('guestNameInput');
   const topicInput = document.getElementById('topicInput');
   const tickerTextInput = document.getElementById('tickerTextInput');
   const toggleTickerBtn = document.getElementById('toggleTickerBtn');
+  const studioThemeSelect = document.getElementById('studioThemeSelect');
 
   // Settings Modal Controls
   const settingsModal = document.getElementById('settingsModal');
@@ -129,6 +153,8 @@
   const applySettingsBtn = document.getElementById('applySettingsBtn');
   const cameraSelect = document.getElementById('cameraSelect');
   const microphoneSelect = document.getElementById('microphoneSelect');
+  const micTestBar = document.getElementById('micTestBar');
+  const audioProfileSelect = document.getElementById('audioProfileSelect');
   const frameRateSelect = document.getElementById('frameRateSelect');
   const audioDelaySlider = document.getElementById('audioDelaySlider');
   const audioDelayValue = document.getElementById('audioDelayValue');
@@ -138,6 +164,17 @@
   const countdownNumber = document.getElementById('countdownNumber');
   const soundboardDrawer = document.getElementById('soundboardDrawer');
   const closeSoundboardBtn = document.getElementById('closeSoundboardBtn');
+
+  // Teleprompter Drawer
+  const teleprompterDrawer = document.getElementById('teleprompterDrawer');
+  const closePrompterBtn = document.getElementById('closePrompterBtn');
+  const toggleScrollPrompterBtn = document.getElementById('toggleScrollPrompterBtn');
+  const resetScrollPrompterBtn = document.getElementById('resetScrollPrompterBtn');
+  const prompterSpeedRange = document.getElementById('prompterSpeedRange');
+  const prompterSpeedVal = document.getElementById('prompterSpeedVal');
+  const prompterFontSizeRange = document.getElementById('prompterFontSizeRange');
+  const prompterFontVal = document.getElementById('prompterFontVal');
+  const prompterContent = document.getElementById('prompterContent');
 
   // Chat Drawer
   const chatDrawer = document.getElementById('chatDrawer');
@@ -156,10 +193,16 @@
   const recordingResultModal = document.getElementById('recordingResultModal');
   const recordedPlayback = document.getElementById('recordedPlayback');
   const downloadVideoAnchor = document.getElementById('downloadVideoAnchor');
+  const downloadAudioAnchor = document.getElementById('downloadAudioAnchor');
   const closeResultModalBtn = document.getElementById('closeResultModalBtn');
   const discardVideoBtn = document.getElementById('discardVideoBtn');
   const recordedFileSizeBadge = document.getElementById('recordedFileSizeBadge');
   const recordedDurationBadge = document.getElementById('recordedDurationBadge');
+
+  // Hotkeys Modal
+  const hotkeysModal = document.getElementById('hotkeysModal');
+  const closeHotkeysBtn = document.getElementById('closeHotkeysBtn');
+  const gotItHotkeysBtn = document.getElementById('gotItHotkeysBtn');
 
   const guideModal = document.getElementById('guideModal');
   const closeGuideBtn = document.getElementById('closeGuideBtn');
@@ -506,6 +549,18 @@
       } else if (data.type === 'RECORDING_START') {
         triggerGuestRecordingUI(true);
         showToast('🔴 Room Owner started recording!', 'success');
+      } else if (data.type === 'RECORDING_PAUSED') {
+        guestRecordBadge.classList.add('is-paused');
+        guestRecordLabel.textContent = 'PAUSED (By Host)';
+        hudLiveTag.textContent = 'PAUSED ❚❚';
+        hudLiveTag.style.background = '#f59e0b';
+        showToast('⏸️ Room Owner paused recording', 'info');
+      } else if (data.type === 'RECORDING_RESUMED') {
+        guestRecordBadge.classList.remove('is-paused');
+        guestRecordLabel.textContent = 'REC (By Host)';
+        hudLiveTag.textContent = 'REC ●';
+        hudLiveTag.style.background = '#ef4444';
+        showToast('▶️ Room Owner resumed recording', 'success');
       } else if (data.type === 'RECORDING_STOP') {
         triggerGuestRecordingUI(false);
         showToast('⏹️ Room Owner stopped recording', 'info');
@@ -572,11 +627,22 @@
         state.audioCtx.resume();
       }
 
+      // Audio Dynamics Compressor (Broadcast Leveler & Limiter)
+      if (!state.audioCompressor) {
+        state.audioCompressor = state.audioCtx.createDynamicsCompressor();
+        state.audioCompressor.threshold.setValueAtTime(-24, state.audioCtx.currentTime);
+        state.audioCompressor.knee.setValueAtTime(30, state.audioCtx.currentTime);
+        state.audioCompressor.ratio.setValueAtTime(12, state.audioCtx.currentTime);
+        state.audioCompressor.attack.setValueAtTime(0.003, state.audioCtx.currentTime);
+        state.audioCompressor.release.setValueAtTime(0.25, state.audioCtx.currentTime);
+        state.audioCompressor.connect(state.audioDestination);
+      }
+
       // Audio Delay Node for Lip-Sync calibration
       if (!state.audioDelayNode) {
         state.audioDelayNode = state.audioCtx.createDelay(1.0);
         state.audioDelayNode.delayTime.value = state.audioDelayMs / 1000;
-        state.audioDelayNode.connect(state.audioDestination);
+        state.audioDelayNode.connect(state.audioCompressor);
       }
 
       // Audio Analysers for Live VU Metering
@@ -605,8 +671,21 @@
           state.remoteAudioSource.disconnect();
         }
         state.remoteAudioSource = state.audioCtx.createMediaStreamSource(state.remoteStream);
-        state.remoteAudioSource.connect(state.audioDestination);
+        state.remoteAudioSource.connect(state.audioCompressor);
         state.remoteAudioSource.connect(state.remoteAnalyser);
+        // Connect to speaker destination so Host hears Co-Host
+        try {
+          state.remoteAudioSource.connect(state.audioCtx.destination);
+        } catch (e) {}
+      }
+
+      // Mix screen share audio (if presentation has sound/video)
+      if (state.screenStream && state.screenStream.getAudioTracks().length > 0) {
+        if (state.screenAudioSource) {
+          state.screenAudioSource.disconnect();
+        }
+        state.screenAudioSource = state.audioCtx.createMediaStreamSource(state.screenStream);
+        state.screenAudioSource.connect(state.audioCompressor);
       }
     } catch (e) {
       console.warn('AudioContext setup issue:', e);
@@ -781,6 +860,42 @@
       canvasCtx.restore();
 
       drawVideoFeed(feed2Video, feed2, pipX, pipY, pipW, pipH, label2, 'Co-Host', vol2);
+    } else if (state.studioLayout === 'screen-duo') {
+      // Screen Share + Co-Hosts Duo Mode
+      const screenActive = state.screenStream && screenVideo && screenVideo.videoWidth > 0;
+      if (state.layoutMode === 'vertical') {
+        const topH = Math.round(ch * 0.60);
+        const botH = ch - topH;
+        const halfW = Math.round(cw / 2);
+
+        // Screen Share Feed on top
+        if (screenActive) {
+          drawVideoFeed(screenVideo, state.screenStream, 0, 0, cw, topH, '🖥️ Screen Presentation', 'Screen', 0);
+        } else {
+          drawEmptyPlaceholder(0, 0, cw, topH, 'Screen');
+        }
+
+        // Host on bottom-left
+        drawVideoFeed(feed1Video, feed1, 0, topH, halfW, botH, label1, 'Host', vol1);
+        // Guest on bottom-right
+        drawVideoFeed(feed2Video, feed2, halfW, topH, halfW, botH, label2, 'Co-Host', vol2);
+      } else {
+        const leftW = Math.round(cw * 0.72);
+        const rightW = cw - leftW;
+        const halfH = Math.round(ch / 2);
+
+        // Screen Share on Left
+        if (screenActive) {
+          drawVideoFeed(screenVideo, state.screenStream, 0, 0, leftW, ch, '🖥️ Screen Presentation', 'Screen', 0);
+        } else {
+          drawEmptyPlaceholder(0, 0, leftW, ch, 'Screen');
+        }
+
+        // Host top-right
+        drawVideoFeed(feed1Video, feed1, leftW, 0, rightW, halfH, label1, 'Host', vol1);
+        // Guest bottom-right
+        drawVideoFeed(feed2Video, feed2, leftW, halfH, rightW, halfH, label2, 'Co-Host', vol2);
+      }
     } else {
       // Standard 50/50 Split Screen Mode
       if (state.layoutMode === 'vertical') {
@@ -831,7 +946,7 @@
     requestAnimationFrame(renderCanvasLoop);
   }
 
-  // Draw individual video feed with aspect cover
+  // Draw individual video feed with aspect cover & active speaker glow
   function drawVideoFeed(videoEl, streamObj, x, y, w, h, nameTag, roleTag, volume) {
     if (streamObj && videoEl) {
       if (videoEl.paused) {
@@ -863,6 +978,17 @@
       }
 
       canvasCtx.drawImage(videoEl, sx, sy, sw, sh, x, y, w, h);
+
+      // Active Speaker Dynamic Glow Border
+      if (volume > 0.08) {
+        canvasCtx.save();
+        canvasCtx.shadowColor = (roleTag === 'Host') ? 'rgba(99, 102, 241, 0.95)' : 'rgba(236, 72, 153, 0.95)';
+        canvasCtx.shadowBlur = 18;
+        canvasCtx.strokeStyle = (roleTag === 'Host') ? '#818cf8' : '#f472b6';
+        canvasCtx.lineWidth = 4;
+        canvasCtx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        canvasCtx.restore();
+      }
     } else {
       drawEmptyPlaceholder(x, y, w, h, roleTag);
     }
@@ -887,6 +1013,11 @@
       canvasCtx.font = '500 18px "Plus Jakarta Sans", sans-serif';
       canvasCtx.fillStyle = '#64748b';
       canvasCtx.fillText('Share your Room Link to start recording together', x + w / 2, y + h / 2 + 15);
+    } else if (role === 'Screen') {
+      canvasCtx.fillText('🖥️ Screen Presentation Mode', x + w / 2, y + h / 2 - 15);
+      canvasCtx.font = '500 18px "Plus Jakarta Sans", sans-serif';
+      canvasCtx.fillStyle = '#64748b';
+      canvasCtx.fillText('Click "Screen" in controls to share slides or tabs', x + w / 2, y + h / 2 + 18);
     } else {
       canvasCtx.fillText('Connecting Camera...', x + w / 2, y + h / 2);
     }
@@ -1088,6 +1219,13 @@
       // UI updates
       recordToggleBtn.classList.add('is-recording');
       recordBtnLabel.textContent = 'Stop';
+      pauseRecordBtn.classList.remove('hidden');
+      pauseRecordBtn.classList.remove('is-paused');
+      pauseIcon.classList.remove('hidden');
+      resumeIcon.classList.add('hidden');
+      pauseBtnLabel.textContent = 'Pause';
+      state.isRecordingPaused = false;
+
       recordingTimerBadge.classList.remove('hidden');
       hudLiveTag.textContent = 'REC ●';
       hudLiveTag.style.background = '#ef4444';
@@ -1106,15 +1244,61 @@
     }
   }
 
+  function pauseResumeRecording() {
+    if (!state.isHost || !state.isRecording || !state.mediaRecorder) return;
+    if (!state.isRecordingPaused) {
+      try {
+        state.mediaRecorder.pause();
+        state.isRecordingPaused = true;
+        pauseRecordBtn.classList.add('is-paused');
+        pauseIcon.classList.add('hidden');
+        resumeIcon.classList.remove('hidden');
+        pauseBtnLabel.textContent = 'Resume';
+        hudLiveTag.textContent = 'PAUSED ❚❚';
+        hudLiveTag.style.background = '#f59e0b';
+        showToast('Recording paused ❚❚', 'info');
+        if (state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'RECORDING_PAUSED' });
+        }
+      } catch (err) {
+        console.warn('Pause error:', err);
+      }
+    } else {
+      try {
+        state.mediaRecorder.resume();
+        state.isRecordingPaused = false;
+        pauseRecordBtn.classList.remove('is-paused');
+        pauseIcon.classList.remove('hidden');
+        resumeIcon.classList.add('hidden');
+        pauseBtnLabel.textContent = 'Pause';
+        hudLiveTag.textContent = 'REC ●';
+        hudLiveTag.style.background = '#ef4444';
+        showToast('Recording resumed ●', 'success');
+        if (state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'RECORDING_RESUMED' });
+        }
+      } catch (err) {
+        console.warn('Resume error:', err);
+      }
+    }
+  }
+
   function stopRecording() {
     if (!state.isHost) return;
 
     if (state.mediaRecorder && state.isRecording) {
       state.mediaRecorder.stop();
       state.isRecording = false;
+      state.isRecordingPaused = false;
 
       recordToggleBtn.classList.remove('is-recording');
       recordBtnLabel.textContent = 'Record';
+      pauseRecordBtn.classList.add('hidden');
+      pauseRecordBtn.classList.remove('is-paused');
+      pauseIcon.classList.remove('hidden');
+      resumeIcon.classList.add('hidden');
+      pauseBtnLabel.textContent = 'Pause';
+
       recordingTimerBadge.classList.add('hidden');
       hudLiveTag.textContent = 'LIVE PREVIEW';
       hudLiveTag.style.background = 'rgba(0, 0, 0, 0.6)';
@@ -1144,6 +1328,14 @@
     const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
     downloadVideoAnchor.href = videoUrl;
     downloadVideoAnchor.download = 'DuoCast_' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+
+    // Generate Audio-Only podcast track download
+    if (downloadAudioAnchor) {
+      const audioBlob = new Blob(state.recordedChunks, { type: 'audio/webm' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      downloadAudioAnchor.href = audioUrl;
+      downloadAudioAnchor.download = 'DuoCast_Podcast_Audio_' + new Date().toISOString().replace(/[:.]/g, '-') + '.webm';
+    }
 
     recordingResultModal.classList.remove('hidden');
   }
@@ -1336,6 +1528,115 @@
     }, 3500);
   }
 
+  // --- Screen Sharing Support ---
+  async function toggleScreenShare() {
+    if (state.isScreenSharing) {
+      stopScreenShare();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: true
+        });
+        state.screenStream = stream;
+        state.isScreenSharing = true;
+        screenVideo.srcObject = stream;
+        try {
+          const p = screenVideo.play();
+          if (p !== undefined) p.catch(() => {});
+        } catch (e) {}
+
+        toggleScreenBtn.classList.add('is-sharing');
+        screenBtnLabel.textContent = 'Stop Share';
+
+        // Auto-switch to screen-duo layout
+        if (state.studioLayout === 'split' || state.studioLayout === 'solo-host') {
+          state.studioLayout = 'screen-duo';
+          studioLayoutSelect.value = 'screen-duo';
+        }
+
+        stream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
+        };
+
+        setupAudioMixer();
+        showToast('Screen share active! Switched to Screen + Duo layout.', 'success');
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          console.warn('Screen share error:', err);
+          showToast('Screen share failed: ' + err.message, 'error');
+        }
+      }
+    }
+  }
+
+  function stopScreenShare() {
+    if (state.screenStream) {
+      state.screenStream.getTracks().forEach(t => t.stop());
+      state.screenStream = null;
+    }
+    state.isScreenSharing = false;
+    screenVideo.srcObject = null;
+    toggleScreenBtn.classList.remove('is-sharing');
+    screenBtnLabel.textContent = 'Screen';
+
+    if (state.studioLayout === 'screen-duo') {
+      state.studioLayout = 'split';
+      studioLayoutSelect.value = 'split';
+    }
+
+    showToast('Screen share ended', 'info');
+  }
+
+  // --- Teleprompter Engine ---
+  function togglePrompterScroll() {
+    if (state.isPrompterScrolling) {
+      clearInterval(state.prompterScrollInterval);
+      state.isPrompterScrolling = false;
+      toggleScrollPrompterBtn.textContent = '▶️ Scroll';
+      toggleScrollPrompterBtn.classList.remove('btn-secondary');
+      toggleScrollPrompterBtn.classList.add('btn-primary');
+    } else {
+      state.isPrompterScrolling = true;
+      toggleScrollPrompterBtn.textContent = '⏸️ Pause';
+      toggleScrollPrompterBtn.classList.remove('btn-primary');
+      toggleScrollPrompterBtn.classList.add('btn-secondary');
+      state.prompterScrollInterval = setInterval(() => {
+        if (prompterContent) {
+          prompterContent.scrollTop += state.prompterSpeed;
+          if (prompterContent.scrollTop + prompterContent.clientHeight >= prompterContent.scrollHeight - 2) {
+            clearInterval(state.prompterScrollInterval);
+            state.isPrompterScrolling = false;
+            toggleScrollPrompterBtn.textContent = '▶️ Scroll';
+            toggleScrollPrompterBtn.classList.remove('btn-secondary');
+            toggleScrollPrompterBtn.classList.add('btn-primary');
+          }
+        }
+      }, 50);
+    }
+  }
+
+  function resetPrompterScroll() {
+    if (prompterContent) {
+      prompterContent.scrollTop = 0;
+    }
+  }
+
+  // --- Mic Input Test Meter (Settings) ---
+  function startMicTest() {
+    if (state.micTestInterval) clearInterval(state.micTestInterval);
+    state.micTestInterval = setInterval(() => {
+      if (!settingsModal.classList.contains('hidden')) {
+        const vol = getAudioVolume(state.localAnalyser);
+        if (micTestBar) {
+          micTestBar.style.width = Math.min(100, Math.round(vol * 170)) + '%';
+        }
+      } else {
+        clearInterval(state.micTestInterval);
+      }
+    }, 80);
+  }
+
   // --- Event Listeners Setup ---
   function setupEventListeners() {
     if (enterStudioBtn) enterStudioBtn.addEventListener('click', handleWelcomeSubmit);
@@ -1365,7 +1666,7 @@
       }
     });
 
-    // Studio Layout Mode (Split, Solo Host, Solo Guest, PiP)
+    // Studio Layout Mode (Split, Solo Host, Solo Guest, PiP, Screen-Duo)
     studioLayoutSelect.addEventListener('change', (e) => {
       state.studioLayout = e.target.value;
       showToast(`Layout changed to: ${e.target.options[e.target.selectedIndex].text}`, 'info');
@@ -1389,9 +1690,18 @@
       });
     }
 
+    // Audio Quality Profile DSP
+    if (audioProfileSelect) {
+      audioProfileSelect.addEventListener('change', (e) => {
+        state.audioProfile = e.target.value;
+        showToast(`Audio DSP Profile: ${e.target.options[e.target.selectedIndex].text}`, 'info');
+      });
+    }
+
     // Soundboard Drawer Toggle
     soundboardToggleBtn.addEventListener('click', () => {
       soundboardDrawer.classList.toggle('hidden');
+      teleprompterDrawer.classList.add('hidden');
       chatDrawer.classList.add('hidden');
     });
     closeSoundboardBtn.addEventListener('click', () => {
@@ -1407,10 +1717,44 @@
       });
     });
 
+    // Teleprompter Drawer Controls
+    if (prompterToggleBtn) {
+      prompterToggleBtn.addEventListener('click', () => {
+        teleprompterDrawer.classList.toggle('hidden');
+        soundboardDrawer.classList.add('hidden');
+        chatDrawer.classList.add('hidden');
+      });
+    }
+    if (closePrompterBtn) {
+      closePrompterBtn.addEventListener('click', () => {
+        teleprompterDrawer.classList.add('hidden');
+      });
+    }
+    if (toggleScrollPrompterBtn) {
+      toggleScrollPrompterBtn.addEventListener('click', togglePrompterScroll);
+    }
+    if (resetScrollPrompterBtn) {
+      resetScrollPrompterBtn.addEventListener('click', resetPrompterScroll);
+    }
+    if (prompterSpeedRange) {
+      prompterSpeedRange.addEventListener('input', (e) => {
+        state.prompterSpeed = parseInt(e.target.value, 10);
+        if (prompterSpeedVal) prompterSpeedVal.textContent = state.prompterSpeed + 'x';
+      });
+    }
+    if (prompterFontSizeRange) {
+      prompterFontSizeRange.addEventListener('input', (e) => {
+        state.prompterFontSize = parseInt(e.target.value, 10);
+        if (prompterFontVal) prompterFontVal.textContent = state.prompterFontSize + 'px';
+        if (prompterContent) prompterContent.style.fontSize = state.prompterFontSize + 'px';
+      });
+    }
+
     // Backstage Chat Drawer Toggle
     chatToggleBtn.addEventListener('click', () => {
       chatDrawer.classList.toggle('hidden');
       soundboardDrawer.classList.add('hidden');
+      teleprompterDrawer.classList.add('hidden');
       if (!chatDrawer.classList.contains('hidden')) {
         chatBadgeCount.classList.add('hidden');
         state.unreadChatCount = 0;
@@ -1434,6 +1778,26 @@
       });
     }
 
+    // Studio Theme Select
+    if (studioThemeSelect) {
+      studioThemeSelect.addEventListener('change', (e) => {
+        const theme = e.target.value;
+        document.body.className = theme;
+        state.studioTheme = theme;
+        showToast(`Studio theme updated: ${e.target.options[e.target.selectedIndex].text}`, 'info');
+      });
+    }
+
+    // Topic Preset Chips
+    document.querySelectorAll('.topic-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const topic = chip.getAttribute('data-topic');
+        topicInput.value = topic;
+        updateBrandingFromInputs();
+        showToast('Show topic updated: ' + topic, 'info');
+      });
+    });
+
     // Ticker Toggle Button
     if (toggleTickerBtn) {
       toggleTickerBtn.addEventListener('click', () => {
@@ -1449,6 +1813,7 @@
     copyInviteBtn.addEventListener('click', copyInviteLink);
     toggleMicBtn.addEventListener('click', toggleMic);
     toggleCamBtn.addEventListener('click', toggleCam);
+    if (toggleScreenBtn) toggleScreenBtn.addEventListener('click', toggleScreenShare);
     flipCameraBtn.addEventListener('click', flipCamera);
     swapLayoutBtn.addEventListener('click', swapLayoutPositions);
 
@@ -1464,6 +1829,11 @@
         startCountdownSequence();
       }
     });
+
+    // Pause / Resume Button (Host Only)
+    if (pauseRecordBtn) {
+      pauseRecordBtn.addEventListener('click', pauseResumeRecording);
+    }
 
     guestRecordBadge.addEventListener('click', () => {
       showToast('Only the Room Owner (Host) can record', 'info');
@@ -1496,10 +1866,15 @@
     // Settings Modal
     settingsModalBtn.addEventListener('click', () => {
       populateDeviceList();
+      startMicTest();
       settingsModal.classList.remove('hidden');
     });
-    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    closeSettingsBtn.addEventListener('click', () => {
+      if (state.micTestInterval) clearInterval(state.micTestInterval);
+      settingsModal.classList.add('hidden');
+    });
     applySettingsBtn.addEventListener('click', () => {
+      if (state.micTestInterval) clearInterval(state.micTestInterval);
       startLocalMedia(cameraSelect.value, microphoneSelect.value);
       settingsModal.classList.add('hidden');
     });
@@ -1508,10 +1883,71 @@
     closeResultModalBtn.addEventListener('click', () => recordingResultModal.classList.add('hidden'));
     discardVideoBtn.addEventListener('click', () => recordingResultModal.classList.add('hidden'));
 
+    // Hotkeys Modal
+    if (hotkeysModalBtn) {
+      hotkeysModalBtn.addEventListener('click', () => hotkeysModal.classList.remove('hidden'));
+    }
+    if (closeHotkeysBtn) {
+      closeHotkeysBtn.addEventListener('click', () => hotkeysModal.classList.add('hidden'));
+    }
+    if (gotItHotkeysBtn) {
+      gotItHotkeysBtn.addEventListener('click', () => hotkeysModal.classList.add('hidden'));
+    }
+
     // Guide Modal
     guideModalBtn.addEventListener('click', () => guideModal.classList.remove('hidden'));
     closeGuideBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
     gotItGuideBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
+
+    // Stream Deck Global Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === ' ' || key === 'm') {
+        e.preventDefault();
+        toggleMic();
+      } else if (key === 'v') {
+        e.preventDefault();
+        toggleCam();
+      } else if (key === 'r') {
+        e.preventDefault();
+        if (state.isHost) {
+          if (state.isRecording) stopRecording(); else startCountdownSequence();
+        }
+      } else if (key === 'p') {
+        e.preventDefault();
+        if (state.isHost && state.isRecording) pauseResumeRecording();
+      } else if (key === 's') {
+        e.preventDefault();
+        soundboardDrawer.classList.toggle('hidden');
+        teleprompterDrawer.classList.add('hidden');
+        chatDrawer.classList.add('hidden');
+      } else if (key === 'c') {
+        e.preventDefault();
+        chatDrawer.classList.toggle('hidden');
+        soundboardDrawer.classList.add('hidden');
+        teleprompterDrawer.classList.add('hidden');
+      } else if (key === 't') {
+        e.preventDefault();
+        teleprompterDrawer.classList.toggle('hidden');
+        soundboardDrawer.classList.add('hidden');
+        chatDrawer.classList.add('hidden');
+      } else if (key === '?') {
+        e.preventDefault();
+        hotkeysModal.classList.toggle('hidden');
+      } else if (['1', '2', '3', '4', '5'].includes(key)) {
+        const layoutMap = { '1': 'split', '2': 'pip', '3': 'solo-host', '4': 'solo-guest', '5': 'screen-duo' };
+        state.studioLayout = layoutMap[key];
+        studioLayoutSelect.value = state.studioLayout;
+        showToast('Layout switched to: ' + state.studioLayout, 'info');
+        if (state.isHost && state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'LAYOUT_SYNC', layout: state.studioLayout });
+        }
+      }
+    });
   }
 
   // Reliable Bootstrap

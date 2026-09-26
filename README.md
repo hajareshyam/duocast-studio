@@ -8,18 +8,26 @@
 ## ✨ Features
 
 - **📱 9:16 Vertical Instagram Mode & 16:9 Landscape:** Default 1080 x 1920 for Reels, Shorts, and TikTok with one-click toggle to 16:9 for YouTube.
-- **📐 Multi-Layout Switching:** 1-click layout options:
-  - **Split (50/50):** Top/Bottom or Side-by-Side.
+- **📐 5 Studio Layouts:**
+  - **Split (50/50):** Top/Bottom or Side-by-Side with glowing neon divider.
   - **Picture-in-Picture (PiP):** Full-screen host with co-host in a floating corner bubble.
-  - **Solo Host & Solo Co-Host:** Full-screen focus.
+  - **Solo Host & Solo Co-Host:** Focused single speaker spotlight.
+  - **🖥️ Screen + Duo:** Screen sharing / slide presentation with both co-hosts side-by-side!
+- **⚡ Active Speaker Neon Glow:** Feeds dynamically illuminate with a glowing neon aura whenever a creator is actively speaking.
+- **📝 Creator Teleprompter:** Built-in floating script drawer with adjustable auto-scroll speed (1x-6x) and font sizing right next to the camera lens.
+- **⏸️ Pause & Resume Recording:** Pause recording anytime if interrupted, sneeze, or need a breath, and resume without creating separate files.
+- **🎙️ Studio Audio DSP (Compressor + Limiter):** Web Audio Dynamics Compressor prevents clipping and distortion when shouting or laughing.
 - **🎛️ Audio Sync Delay Slider (0ms – 500ms):** Fix Bluetooth / AirPods lip-sync latency with a live calibration slider in Settings.
-- **🔊 Live Audio VU Meters:** Real-time animated 4-bar equalizers right next to each creator's name on the video canvas.
+- **🔊 Live Audio VU Meters & Mic Level Test:** Real-time animated 4-bar equalizers on canvas and in Settings.
+- **🎧 Audio-Only Podcast Track Export:** Instantly download high-quality audio track (.webm/.wav) in addition to master video.
+- **⌨️ Stream Deck Hotkeys:** Full keyboard control (`Space`/`M` mute, `V` camera, `R` record, `P` pause, `1-5` layouts, `S` soundboard, `C` chat, `T` prompter, `?` help).
+- **🎨 Studio Themes & Quick Topic Chips:** Switch between Studio Indigo, Cyberpunk Neon, Sunset Gold, and Emerald Slate, plus one-click topic presets.
 - **⏱️ 3-2-1 Recording Countdown:** Visual countdown with sync chime sounds so both participants prepare and speak at the exact same second.
-- **🎉 Creator Soundboard (SFX):** Built-in Web Audio soundboard with Applause 👏, Ding 🔔, Airhorn 🚨, Drumroll 🥁, and Laughter 😂 mixed into the recording.
+- **🎉 Creator Soundboard (SFX):** Built-in Web Audio soundboard with Applause 👏, Ding 🔔, Airhorn 🚨, Drumroll 🥁, and Laughter 😂 mixed into the master recording.
 - **📢 Scrolling Lower-Third Ticker:** Live marquee banner across the bottom for announcements, handles, and CTAs.
 - **💬 Private Backstage Chat:** Silent text channel between Host and Co-Host over WebRTC data connection.
 - **🔗 1-Click Invite Link & Room Persistence:** Host shares link, co-host joins instantly. Refreshing the browser preserves the active room and host privileges.
-- **📥 Local Recording & Instant Download:** Direct client-side `.mp4` / `.webm` recording with zero watermarks.
+- **📥 Local Recording & Instant Download:** Direct client-side recording with zero watermarks.
 - **⚡ 100% Free & Serverless:** Built for GitHub Pages using WebRTC and PeerJS cloud broker.
 
 ---
