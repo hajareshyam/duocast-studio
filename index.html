@@ -39,19 +39,34 @@
       </div>
 
       <div class="header-actions">
-        <button id="layoutToggleBtn" class="btn btn-secondary btn-icon" title="Toggle Layout (Vertical 9:16 / Landscape 16:9)">
+        <select id="studioLayoutSelect" class="select-styled select-compact" title="Change Video Layout">
+          <option value="split" selected>👥 Split (50/50)</option>
+          <option value="pip">🔲 Picture-in-Picture</option>
+          <option value="solo-host">👤 Solo Host</option>
+          <option value="solo-guest">👤 Solo Co-Host</option>
+        </select>
+        <button id="layoutToggleBtn" class="btn btn-secondary btn-icon" title="Toggle Aspect Ratio (9:16 Reels / 16:9 Landscape)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="5" y="2" width="14" height="20" rx="2"></rect>
           </svg>
-          <span id="layoutModeText">9:16 Reels</span>
+          <span id="layoutModeText">9:16</span>
         </button>
-        <button id="brandingToggleBtn" class="btn btn-ghost btn-icon" title="Edit Names & Topic Title">
+        <button id="soundboardToggleBtn" class="btn btn-ghost btn-icon" title="Sound Effects Soundboard">
+          🔊
+        </button>
+        <button id="chatToggleBtn" class="btn btn-ghost btn-icon" style="position: relative;" title="Private Backstage Chat">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span id="chatBadgeCount" class="badge-dot hidden" style="position: absolute; top: 4px; right: 4px; background: #ec4899;"></span>
+        </button>
+        <button id="brandingToggleBtn" class="btn btn-ghost btn-icon" title="Edit Names, Topic & Ticker">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
         </button>
-        <button id="settingsModalBtn" class="btn btn-ghost btn-icon" title="Audio/Video Settings">
+        <button id="settingsModalBtn" class="btn btn-ghost btn-icon" title="Audio/Video Settings & Lip-Sync">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -202,6 +217,11 @@
           <label for="topicInput">Show / Reel Title:</label>
           <input type="text" id="topicInput" value="Live Travel & Mom-Life Talk 🎙️" placeholder="Optional Title">
         </div>
+        <div class="input-group input-group-full">
+          <label for="tickerTextInput">Scrolling Ticker:</label>
+          <input type="text" id="tickerTextInput" value="✨ Follow @traveller.risha for daily travel hacks & mom-life reels!" placeholder="Bottom scrolling marquee text...">
+          <button type="button" id="toggleTickerBtn" class="btn btn-secondary btn-sm" style="white-space: nowrap;">Ticker: ON</button>
+        </div>
       </div>
     </aside>
 
@@ -315,6 +335,14 @@
               <option value="60">60 FPS (Ultra Smooth)</option>
             </select>
           </div>
+          <div class="setting-item">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="audioDelaySlider">Audio Sync Offset (Lip-Sync):</label>
+              <span id="audioDelayValue" style="font-family: var(--font-mono); font-size: 0.8rem; color: #a5b4fc; font-weight: 700;">0 ms</span>
+            </div>
+            <input type="range" id="audioDelaySlider" min="0" max="500" step="10" value="0" style="width: 100%; accent-color: var(--accent-primary);">
+            <small style="color: var(--text-dim); font-size: 0.72rem;">Increase slider if voice comes before lips (e.g. +100ms for Bluetooth/AirPods).</small>
+          </div>
         </div>
         <div class="modal-footer">
           <button id="applySettingsBtn" class="btn btn-primary">Save & Apply</button>
@@ -352,6 +380,75 @@
         <div class="modal-footer">
           <button id="gotItGuideBtn" class="btn btn-primary">Got it!</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Countdown Overlay (3-2-1 Sync Cue) -->
+    <div id="countdownOverlay" class="countdown-overlay hidden">
+      <div class="countdown-box">
+        <div id="countdownNumber" class="countdown-number">3</div>
+        <div id="countdownLabel" class="countdown-label">GET READY...</div>
+      </div>
+    </div>
+
+    <!-- Backstage Private Chat Drawer -->
+    <div id="chatDrawer" class="chat-drawer glass-card hidden">
+      <div class="chat-header">
+        <div class="chat-title">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Backstage Chat</span>
+        </div>
+        <button id="closeChatBtn" class="btn-close">&times;</button>
+      </div>
+      <div id="chatMessagesContainer" class="chat-messages">
+        <div class="chat-system-msg">Send silent cues and notes to your co-host during the broadcast.</div>
+      </div>
+      <form id="chatForm" class="chat-input-bar">
+        <input type="text" id="chatTextInput" placeholder="Type a private cue..." autocomplete="off">
+        <button type="submit" class="btn btn-primary btn-sm btn-icon">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+    </div>
+
+    <!-- Creator Soundboard Drawer -->
+    <div id="soundboardDrawer" class="soundboard-drawer glass-card hidden">
+      <div class="soundboard-header">
+        <div class="soundboard-title">
+          <span>🎉 Creator Soundboard</span>
+        </div>
+        <button id="closeSoundboardBtn" class="btn-close">&times;</button>
+      </div>
+      <div class="soundboard-grid">
+        <button type="button" class="sfx-btn" data-sfx="applause">
+          <span class="sfx-emoji">👏</span>
+          <span class="sfx-name">Applause</span>
+        </button>
+        <button type="button" class="sfx-btn" data-sfx="ding">
+          <span class="sfx-emoji">🔔</span>
+          <span class="sfx-name">Ding</span>
+        </button>
+        <button type="button" class="sfx-btn" data-sfx="airhorn">
+          <span class="sfx-emoji">🚨</span>
+          <span class="sfx-name">Airhorn</span>
+        </button>
+        <button type="button" class="sfx-btn" data-sfx="drumroll">
+          <span class="sfx-emoji">🥁</span>
+          <span class="sfx-name">Drumroll</span>
+        </button>
+        <button type="button" class="sfx-btn" data-sfx="laugh">
+          <span class="sfx-emoji">😂</span>
+          <span class="sfx-name">Laugh</span>
+        </button>
+        <button type="button" class="sfx-btn" data-sfx="chime">
+          <span class="sfx-emoji">✨</span>
+          <span class="sfx-name">Magic Chime</span>
+        </button>
       </div>
     </div>
 

@@ -1,5 +1,6 @@
 /**
  * DuoCast Studio • Client-Side 2-Person Live Recorder
+ * Professional Creator Studio with Multi-Layouts, Soundboard, Lip-Sync, VU Meters & Chat
  * 100% Free & Open-Source (Runs directly on GitHub Pages)
  */
 
@@ -12,7 +13,7 @@
     peerId: null,
     remotePeerId: null,
     activeCall: null,
-    dataConn: null,        // WebRTC Data Connection for syncing names and recording status
+    dataConn: null,        // WebRTC Data Connection for syncing names, chat, layouts, and recording
     isHost: true,          // Room Owner = true, Guest = false
     roomCode: '',
     
@@ -27,27 +28,41 @@
     isCamOff: false,
     
     // Layout
-    layoutMode: 'vertical', // 'vertical' (9:16) or 'landscape' (16:9)
-    swapPositions: false,   // swap local & remote feeds
+    layoutMode: 'vertical',   // 'vertical' (9:16) or 'landscape' (16:9)
+    studioLayout: 'split',    // 'split', 'pip', 'solo-host', 'solo-guest'
+    swapPositions: false,     // swap local & remote feeds
     
-    // Audio Context Mixer
+    // Audio Context Mixer & Sync
     audioCtx: null,
     audioDestination: null,
     localAudioSource: null,
     remoteAudioSource: null,
+    audioDelayNode: null,
+    audioDelayMs: 0,
+    localAnalyser: null,
+    remoteAnalyser: null,
+    localVolume: 0,
+    remoteVolume: 0,
     
     // Recording (Host Exclusive)
     mediaRecorder: null,
     recordedChunks: [],
     isRecording: false,
+    isCountingDown: false,
     recordStartTime: 0,
     recordTimerInterval: null,
     recordedBlob: null,
     
-    // Branding & Overlay
+    // Branding & Lower-Third Ticker
     hostName: '@traveller.risha',
     guestName: '@guest.creator',
-    showTitle: 'Live Travel & Mom-Life Talk 🎙️'
+    showTitle: 'Live Travel & Mom-Life Talk 🎙️',
+    tickerEnabled: true,
+    tickerText: '✨ Follow @traveller.risha for daily travel hacks & mom-life reels!',
+    tickerOffset: 0,
+
+    // Chat
+    unreadChatCount: 0
   };
 
   // --- DOM Elements ---
@@ -67,17 +82,24 @@
   const hudResolutionTag = document.getElementById('hudResolutionTag');
   const hudLiveTag = document.getElementById('hudLiveTag');
 
-  // Action Buttons
-  const copyInviteBtn = document.getElementById('copyInviteBtn');
-  const joinDifferentRoomBtn = document.getElementById('joinDifferentRoomBtn');
+  // Header Controls
+  const studioLayoutSelect = document.getElementById('studioLayoutSelect');
   const layoutToggleBtn = document.getElementById('layoutToggleBtn');
   const layoutModeText = document.getElementById('layoutModeText');
+  const soundboardToggleBtn = document.getElementById('soundboardToggleBtn');
+  const chatToggleBtn = document.getElementById('chatToggleBtn');
+  const chatBadgeCount = document.getElementById('chatBadgeCount');
+  const brandingToggleBtn = document.getElementById('brandingToggleBtn');
+  const settingsModalBtn = document.getElementById('settingsModalBtn');
+  const guideModalBtn = document.getElementById('guideModalBtn');
+  const copyInviteBtn = document.getElementById('copyInviteBtn');
+  const joinDifferentRoomBtn = document.getElementById('joinDifferentRoomBtn');
+
+  // Floating Control Bar
   const toggleMicBtn = document.getElementById('toggleMicBtn');
   const toggleCamBtn = document.getElementById('toggleCamBtn');
   const flipCameraBtn = document.getElementById('flipCameraBtn');
   const swapLayoutBtn = document.getElementById('swapLayoutBtn');
-  
-  // Recording Controls
   const recordToggleBtn = document.getElementById('recordToggleBtn');
   const recordBtnLabel = document.getElementById('recordBtnLabel');
   const guestRecordBadge = document.getElementById('guestRecordBadge');
@@ -85,7 +107,6 @@
 
   // Welcome / Onboarding Modal
   const welcomeModal = document.getElementById('welcomeModal');
-  const welcomeForm = document.getElementById('welcomeForm');
   const welcomeSubtitle = document.getElementById('welcomeSubtitle');
   const userNameInput = document.getElementById('userNameInput');
   const hostOnlyFields = document.getElementById('hostOnlyFields');
@@ -94,11 +115,43 @@
   const enterStudioBtn = document.getElementById('enterStudioBtn');
   const closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
 
-  // Other Modals & Controls
+  // Branding Drawer Inputs
+  const brandingBar = document.querySelector('.branding-bar');
+  const hostNameInput = document.getElementById('hostNameInput');
+  const guestNameInput = document.getElementById('guestNameInput');
+  const topicInput = document.getElementById('topicInput');
+  const tickerTextInput = document.getElementById('tickerTextInput');
+  const toggleTickerBtn = document.getElementById('toggleTickerBtn');
+
+  // Settings Modal Controls
+  const settingsModal = document.getElementById('settingsModal');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const applySettingsBtn = document.getElementById('applySettingsBtn');
+  const cameraSelect = document.getElementById('cameraSelect');
+  const microphoneSelect = document.getElementById('microphoneSelect');
+  const frameRateSelect = document.getElementById('frameRateSelect');
+  const audioDelaySlider = document.getElementById('audioDelaySlider');
+  const audioDelayValue = document.getElementById('audioDelayValue');
+
+  // Countdown & SFX Overlays
+  const countdownOverlay = document.getElementById('countdownOverlay');
+  const countdownNumber = document.getElementById('countdownNumber');
+  const soundboardDrawer = document.getElementById('soundboardDrawer');
+  const closeSoundboardBtn = document.getElementById('closeSoundboardBtn');
+
+  // Chat Drawer
+  const chatDrawer = document.getElementById('chatDrawer');
+  const closeChatBtn = document.getElementById('closeChatBtn');
+  const chatMessagesContainer = document.getElementById('chatMessagesContainer');
+  const chatForm = document.getElementById('chatForm');
+  const chatTextInput = document.getElementById('chatTextInput');
+
+  // Result & Join Modals
   const joinModal = document.getElementById('joinModal');
   const manualRoomCodeInput = document.getElementById('manualRoomCodeInput');
   const confirmJoinBtn = document.getElementById('confirmJoinBtn');
   const closeJoinModalBtn = document.getElementById('closeJoinModalBtn');
+  const createNewRoomBtn = document.getElementById('createNewRoomBtn');
 
   const recordingResultModal = document.getElementById('recordingResultModal');
   const recordedPlayback = document.getElementById('recordedPlayback');
@@ -108,21 +161,9 @@
   const recordedFileSizeBadge = document.getElementById('recordedFileSizeBadge');
   const recordedDurationBadge = document.getElementById('recordedDurationBadge');
 
-  const settingsModal = document.getElementById('settingsModal');
-  const settingsModalBtn = document.getElementById('settingsModalBtn');
-  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-  const applySettingsBtn = document.getElementById('applySettingsBtn');
-  const cameraSelect = document.getElementById('cameraSelect');
-  const microphoneSelect = document.getElementById('microphoneSelect');
-
   const guideModal = document.getElementById('guideModal');
-  const guideModalBtn = document.getElementById('guideModalBtn');
   const closeGuideBtn = document.getElementById('closeGuideBtn');
   const gotItGuideBtn = document.getElementById('gotItGuideBtn');
-
-  const hostNameInput = document.getElementById('hostNameInput');
-  const guestNameInput = document.getElementById('guestNameInput');
-  const topicInput = document.getElementById('topicInput');
   const toastContainer = document.getElementById('toastContainer');
 
   // Icons
@@ -131,14 +172,14 @@
   const camOnIcon = document.getElementById('camOnIcon');
   const camOffIcon = document.getElementById('camOffIcon');
 
-  // --- Step 1: Pre-Entry Setup (Prompt Name First) ---
+  // --- Step 1: Pre-Entry Setup (Prompt Name First & Restore Room) ---
   function setupWelcomeScreen() {
     const urlParams = new URLSearchParams(window.location.search);
     let requestedRoom = urlParams.get('room');
     const savedHostRoom = localStorage.getItem('duocast_host_room') || '';
     const savedName = localStorage.getItem('duocast_username') || '';
 
-    // If no room in URL, check if host already had an active room saved
+    // Restore saved host room if refreshing without query params
     if (!requestedRoom && savedHostRoom) {
       requestedRoom = savedHostRoom;
       const newUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(savedHostRoom);
@@ -152,7 +193,7 @@
       if (requestedRoom === savedHostRoom) {
         state.isHost = true;
         welcomeSubtitle.textContent = `Welcome back to your room "${requestedRoom}".`;
-        roleNoticeBadge.innerHTML = `<span class="badge-role-icon">👑</span><span>You are the <strong>Room Owner (Host)</strong>. Only you can start and stop recording.</span>`;
+        roleNoticeBadge.innerHTML = `<span class="badge-role-icon">👑</span><span>You are the <strong>Room Owner (Host)</strong>. Only you control recording.</span>`;
         hostOnlyFields.classList.remove('hidden');
         enterStudioBtn.querySelector('span').textContent = 'Enter Studio 🎙️';
         userNameInput.value = savedName || '@traveller.risha';
@@ -230,7 +271,6 @@
       guestRecordLabel.textContent = 'Host Controls Rec';
     }
 
-    // Hide welcome modal immediately
     closeWelcomeModal();
     showToast(`Welcome, ${enteredName}!`, 'success');
 
@@ -322,7 +362,7 @@
         } catch (err) {}
         setupAudioMixer();
         updateStatus('connected', 'Co-Host Connected');
-        showToast('Co-Host joined the video feed!', 'success');
+        showToast('Co-Host joined the studio!', 'success');
       });
 
       call.on('close', handleRemoteDisconnect);
@@ -336,7 +376,6 @@
       console.warn('Peer error:', err);
       if (err.type === 'unavailable-id') {
         updateStatus('connecting', 'Reconnecting to room...');
-        // Retry connection to same room in 2 seconds in case previous socket is closing
         setTimeout(() => {
           if (!state.peer || state.peer.destroyed) {
             initPeerAsHost(roomId);
@@ -371,7 +410,7 @@
     
     updateStatus('connecting', 'Calling Room Owner...');
 
-    // 1. Establish Data Channel to sync names and recording state
+    // 1. Establish Data Channel
     const conn = state.peer.connect(hostRoomId);
     setupGuestDataConnection(conn);
 
@@ -404,20 +443,25 @@
     state.dataConn = conn;
 
     conn.on('open', () => {
-      // Send host name and show title to the guest
       conn.send({
         type: 'HOST_SYNC',
         hostName: state.hostName,
         showTitle: state.showTitle,
+        studioLayout: state.studioLayout,
+        tickerText: state.tickerText,
+        tickerEnabled: state.tickerEnabled,
         isRecording: state.isRecording
       });
     });
 
     conn.on('data', (data) => {
-      if (data && data.type === 'GUEST_NAME') {
+      if (!data) return;
+      if (data.type === 'GUEST_NAME') {
         state.guestName = data.name;
         guestNameInput.value = data.name;
         showToast(`Co-Host "${data.name}" synced`, 'info');
+      } else if (data.type === 'CHAT_MSG') {
+        appendChatMessage(data.sender, data.text, false);
       }
     });
 
@@ -431,7 +475,6 @@
     state.dataConn = conn;
 
     conn.on('open', () => {
-      // Send our guest name to the host
       conn.send({
         type: 'GUEST_NAME',
         name: state.guestName
@@ -446,15 +489,28 @@
         state.showTitle = data.showTitle;
         hostNameInput.value = data.hostName;
         topicInput.value = data.showTitle;
+        if (data.studioLayout) {
+          state.studioLayout = data.studioLayout;
+          studioLayoutSelect.value = data.studioLayout;
+        }
+        if (data.tickerText) state.tickerText = data.tickerText;
+        state.tickerEnabled = !!data.tickerEnabled;
         if (data.isRecording) {
           triggerGuestRecordingUI(true);
         }
+      } else if (data.type === 'COUNTDOWN') {
+        handleRemoteCountdown(data.count);
+      } else if (data.type === 'LAYOUT_SYNC') {
+        state.studioLayout = data.layout;
+        studioLayoutSelect.value = data.layout;
       } else if (data.type === 'RECORDING_START') {
         triggerGuestRecordingUI(true);
         showToast('🔴 Room Owner started recording!', 'success');
       } else if (data.type === 'RECORDING_STOP') {
         triggerGuestRecordingUI(false);
         showToast('⏹️ Room Owner stopped recording', 'info');
+      } else if (data.type === 'CHAT_MSG') {
+        appendChatMessage(data.sender, data.text, false);
       }
     });
 
@@ -463,7 +519,20 @@
     });
   }
 
-  // Guest UI update when Host records
+  function handleRemoteCountdown(count) {
+    if (count > 0) {
+      countdownOverlay.classList.remove('hidden');
+      countdownNumber.textContent = count;
+      playStudioSFX('ding');
+    } else {
+      countdownNumber.textContent = 'REC!';
+      playStudioSFX('chime');
+      setTimeout(() => {
+        countdownOverlay.classList.add('hidden');
+      }, 500);
+    }
+  }
+
   function triggerGuestRecordingUI(isRec) {
     if (isRec) {
       guestRecordBadge.classList.add('is-recording');
@@ -490,7 +559,7 @@
     showToast('Co-Host left the studio', 'error');
   }
 
-  // --- Audio Mixer (Web Audio API) ---
+  // --- Audio Mixer & Lip-Sync Node (Web Audio API) ---
   function setupAudioMixer() {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -503,13 +572,31 @@
         state.audioCtx.resume();
       }
 
+      // Audio Delay Node for Lip-Sync calibration
+      if (!state.audioDelayNode) {
+        state.audioDelayNode = state.audioCtx.createDelay(1.0);
+        state.audioDelayNode.delayTime.value = state.audioDelayMs / 1000;
+        state.audioDelayNode.connect(state.audioDestination);
+      }
+
+      // Audio Analysers for Live VU Metering
+      if (!state.localAnalyser) {
+        state.localAnalyser = state.audioCtx.createAnalyser();
+        state.localAnalyser.fftSize = 32;
+      }
+      if (!state.remoteAnalyser) {
+        state.remoteAnalyser = state.audioCtx.createAnalyser();
+        state.remoteAnalyser.fftSize = 32;
+      }
+
       // Mix local audio
       if (state.localStream && state.localStream.getAudioTracks().length > 0) {
         if (state.localAudioSource) {
           state.localAudioSource.disconnect();
         }
         state.localAudioSource = state.audioCtx.createMediaStreamSource(state.localStream);
-        state.localAudioSource.connect(state.audioDestination);
+        state.localAudioSource.connect(state.audioDelayNode);
+        state.localAudioSource.connect(state.localAnalyser);
       }
 
       // Mix remote audio
@@ -519,9 +606,125 @@
         }
         state.remoteAudioSource = state.audioCtx.createMediaStreamSource(state.remoteStream);
         state.remoteAudioSource.connect(state.audioDestination);
+        state.remoteAudioSource.connect(state.remoteAnalyser);
       }
     } catch (e) {
       console.warn('AudioContext setup issue:', e);
+    }
+  }
+
+  // Get normalized audio volume (0.0 to 1.0) for VU meters
+  function getAudioVolume(analyser) {
+    if (!analyser) return 0;
+    try {
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const avg = sum / dataArray.length;
+      return Math.min(Math.max((avg - 10) / 90, 0), 1);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // --- Creator Soundboard (Web Audio Synthesizer) ---
+  function playStudioSFX(name) {
+    if (!state.audioCtx) setupAudioMixer();
+    if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+
+    const now = state.audioCtx.currentTime;
+    const dest = state.audioDestination;
+
+    if (name === 'ding') {
+      const osc = state.audioCtx.createOscillator();
+      const gain = state.audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+      osc.connect(gain);
+      gain.connect(dest);
+      gain.connect(state.audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 1.0);
+    } else if (name === 'airhorn') {
+      const freqs = [370, 370, 370, 440];
+      const times = [0, 0.15, 0.3, 0.45];
+      freqs.forEach((f, idx) => {
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, now + times[idx]);
+        gain.gain.setValueAtTime(0.35, now + times[idx]);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + times[idx] + 0.12);
+        osc.connect(gain);
+        gain.connect(dest);
+        gain.connect(state.audioCtx.destination);
+        osc.start(now + times[idx]);
+        osc.stop(now + times[idx] + 0.14);
+      });
+    } else if (name === 'applause') {
+      const bufferSize = state.audioCtx.sampleRate * 2.2;
+      const buffer = state.audioCtx.createBuffer(1, bufferSize, state.audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (state.audioCtx.sampleRate * 1.5));
+      }
+      const noise = state.audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = state.audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1000;
+      filter.Q.value = 1.0;
+      const gain = state.audioCtx.createGain();
+      gain.gain.setValueAtTime(0.45, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 2.2);
+      noise.connect(filter).connect(gain).connect(dest);
+      gain.connect(state.audioCtx.destination);
+      noise.start(now);
+    } else if (name === 'chime') {
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.4, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.8);
+        osc.connect(gain).connect(dest);
+        gain.connect(state.audioCtx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.8);
+      });
+    } else if (name === 'laugh') {
+      [380, 480, 400, 520, 420, 540].forEach((f, idx) => {
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now + idx * 0.08);
+        gain.gain.setValueAtTime(0.3, now + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.07);
+        osc.connect(gain).connect(dest);
+        gain.connect(state.audioCtx.destination);
+        osc.start(now + idx * 0.08);
+        osc.stop(now + idx * 0.08 + 0.08);
+      });
+    } else if (name === 'drumroll') {
+      for (let i = 0; i < 16; i++) {
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140 + Math.random() * 20, now + i * 0.06);
+        gain.gain.setValueAtTime(0.1 + (i / 16) * 0.35, now + i * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.06 + 0.05);
+        osc.connect(gain).connect(dest);
+        gain.connect(state.audioCtx.destination);
+        osc.start(now + i * 0.06);
+        osc.stop(now + i * 0.06 + 0.06);
+      }
     }
   }
 
@@ -530,7 +733,7 @@
     const cw = studioCanvas.width;
     const ch = studioCanvas.height;
 
-    // 1. Draw Studio Background with subtle gradient
+    // Background gradient
     const bgGradient = canvasCtx.createLinearGradient(0, 0, cw, ch);
     bgGradient.addColorStop(0, '#0a0c14');
     bgGradient.addColorStop(0.5, '#10121d');
@@ -538,71 +741,98 @@
     canvasCtx.fillStyle = bgGradient;
     canvasCtx.fillRect(0, 0, cw, ch);
 
-    // Identify which stream is Top/Left and Bottom/Right
+    // Calculate dynamic volume levels for VU meters
+    state.localVolume = getAudioVolume(state.localAnalyser);
+    state.remoteVolume = getAudioVolume(state.remoteAnalyser);
+
     const feed1 = state.swapPositions ? state.remoteStream : state.localStream;
     const feed2 = state.swapPositions ? state.localStream : state.remoteStream;
     const feed1Video = state.swapPositions ? remoteVideo : localVideo;
     const feed2Video = state.swapPositions ? localVideo : remoteVideo;
+    const vol1 = state.swapPositions ? state.remoteVolume : state.localVolume;
+    const vol2 = state.swapPositions ? state.localVolume : state.remoteVolume;
 
     const label1 = state.swapPositions ? state.guestName : state.hostName;
     const label2 = state.swapPositions ? state.hostName : state.guestName;
 
-    if (state.layoutMode === 'vertical') {
-      // 9:16 Vertical Instagram Split Screen (Top / Bottom)
-      const halfH = ch / 2;
+    // --- Layout Rendering Modes ---
+    if (state.studioLayout === 'solo-host') {
+      // Solo Host (Full Screen)
+      drawVideoFeed(feed1Video, feed1, 0, 0, cw, ch, label1, 'Host', vol1);
+    } else if (state.studioLayout === 'solo-guest') {
+      // Solo Co-Host (Full Screen)
+      drawVideoFeed(feed2Video, feed2, 0, 0, cw, ch, label2, 'Co-Host', vol2);
+    } else if (state.studioLayout === 'pip') {
+      // Picture-in-Picture Mode
+      drawVideoFeed(feed1Video, feed1, 0, 0, cw, ch, label1, 'Host', vol1);
 
-      // Draw Top Feed
-      drawVideoFeed(feed1Video, feed1, 0, 0, cw, halfH, label1, 'Host');
+      // Floating Corner Bubble
+      const pipW = Math.round(cw * 0.36);
+      const pipH = Math.round(state.layoutMode === 'vertical' ? pipW * (16 / 9) : pipW * (9 / 16));
+      const pipX = cw - pipW - 24;
+      const pipY = ch - pipH - 70;
 
-      // Draw Elegant Center Divider Line with Neon Glow
       canvasCtx.save();
-      canvasCtx.shadowColor = '#6366f1';
-      canvasCtx.shadowBlur = 12;
-      canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
-      canvasCtx.lineWidth = 4;
-      canvasCtx.beginPath();
-      canvasCtx.moveTo(0, halfH);
-      canvasCtx.lineTo(cw, halfH);
-      canvasCtx.stroke();
+      canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      canvasCtx.shadowBlur = 24;
+      canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.9)';
+      canvasCtx.lineWidth = 3;
+      canvasCtx.strokeRect(pipX, pipY, pipW, pipH);
       canvasCtx.restore();
 
-      // Draw Bottom Feed
-      drawVideoFeed(feed2Video, feed2, 0, halfH, cw, halfH, label2, 'Co-Host');
-
-      // Draw Top Branding Header Banner
-      drawTopHeaderBanner(cw);
-
+      drawVideoFeed(feed2Video, feed2, pipX, pipY, pipW, pipH, label2, 'Co-Host', vol2);
     } else {
-      // 16:9 Landscape Mode (Side by Side)
-      const halfW = cw / 2;
+      // Standard 50/50 Split Screen Mode
+      if (state.layoutMode === 'vertical') {
+        const halfH = ch / 2;
 
-      // Draw Left Feed
-      drawVideoFeed(feed1Video, feed1, 0, 0, halfW, ch, label1, 'Host');
+        drawVideoFeed(feed1Video, feed1, 0, 0, cw, halfH, label1, 'Host', vol1);
 
-      // Draw Center Divider Line
-      canvasCtx.save();
-      canvasCtx.shadowColor = '#6366f1';
-      canvasCtx.shadowBlur = 10;
-      canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
-      canvasCtx.lineWidth = 4;
-      canvasCtx.beginPath();
-      canvasCtx.moveTo(halfW, 0);
-      canvasCtx.lineTo(halfW, ch);
-      canvasCtx.stroke();
-      canvasCtx.restore();
+        // Center Divider
+        canvasCtx.save();
+        canvasCtx.shadowColor = '#6366f1';
+        canvasCtx.shadowBlur = 12;
+        canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+        canvasCtx.lineWidth = 4;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, halfH);
+        canvasCtx.lineTo(cw, halfH);
+        canvasCtx.stroke();
+        canvasCtx.restore();
 
-      // Draw Right Feed
-      drawVideoFeed(feed2Video, feed2, halfW, 0, halfW, ch, label2, 'Co-Host');
+        drawVideoFeed(feed2Video, feed2, 0, halfH, cw, halfH, label2, 'Co-Host', vol2);
+      } else {
+        const halfW = cw / 2;
 
-      // Draw Top Branding Header Banner
-      drawTopHeaderBanner(cw);
+        drawVideoFeed(feed1Video, feed1, 0, 0, halfW, ch, label1, 'Host', vol1);
+
+        // Center Divider
+        canvasCtx.save();
+        canvasCtx.shadowColor = '#6366f1';
+        canvasCtx.shadowBlur = 10;
+        canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+        canvasCtx.lineWidth = 4;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(halfW, 0);
+        canvasCtx.lineTo(halfW, ch);
+        canvasCtx.stroke();
+        canvasCtx.restore();
+
+        drawVideoFeed(feed2Video, feed2, halfW, 0, halfW, ch, label2, 'Co-Host', vol2);
+      }
     }
+
+    // Top Header Banner
+    drawTopHeaderBanner(cw);
+
+    // Scrolling Lower-Third Ticker
+    drawScrollingTicker(cw, ch);
 
     requestAnimationFrame(renderCanvasLoop);
   }
 
-  // Draw an individual video feed with "cover" aspect-ratio preservation
-  function drawVideoFeed(videoEl, streamObj, x, y, w, h, nameTag, roleTag) {
+  // Draw individual video feed with aspect cover
+  function drawVideoFeed(videoEl, streamObj, x, y, w, h, nameTag, roleTag, volume) {
     if (streamObj && videoEl) {
       if (videoEl.paused) {
         try {
@@ -637,7 +867,8 @@
       drawEmptyPlaceholder(x, y, w, h, roleTag);
     }
 
-    drawNameBadge(x + 24, y + h - 54, nameTag);
+    // Draw Name Tag with VU Meter Equalizer
+    drawNameBadge(x + 20, y + h - 50, nameTag, volume);
   }
 
   function drawEmptyPlaceholder(x, y, w, h, role) {
@@ -661,49 +892,66 @@
     }
   }
 
-  function drawNameBadge(x, y, text) {
+  // Draw name tag badge with live VU meter equalizer
+  function drawNameBadge(x, y, text, volume = 0) {
     if (!text) return;
     canvasCtx.save();
-    canvasCtx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
+    canvasCtx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
     const textMetrics = canvasCtx.measureText(text);
-    const padX = 18;
-    const badgeW = textMetrics.width + (padX * 2);
-    const badgeH = 38;
+    const padX = 14;
+    const vuWidth = 24;
+    const badgeW = textMetrics.width + (padX * 2) + vuWidth;
+    const badgeH = 36;
 
-    canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    // Pill background
+    canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     canvasCtx.beginPath();
     canvasCtx.roundRect(x, y, badgeW, badgeH, 10);
     canvasCtx.fill();
 
     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    canvasCtx.lineWidth = 1.5;
+    canvasCtx.lineWidth = 1.2;
     canvasCtx.stroke();
 
+    // Name Text
     canvasCtx.fillStyle = '#ffffff';
     canvasCtx.textAlign = 'left';
     canvasCtx.textBaseline = 'middle';
     canvasCtx.fillText(text, x + padX, y + (badgeH / 2));
+
+    // Dynamic 4-Bar Equalizer
+    const bars = 4;
+    const barW = 3;
+    const barGap = 2;
+    const startBarX = x + padX + textMetrics.width + 8;
+    for (let i = 0; i < bars; i++) {
+      const barH = 4 + Math.min(volume * 18 * (0.8 + i * 0.25), 18);
+      const barY = y + (badgeH - barH) / 2;
+      canvasCtx.fillStyle = (i === 3 && volume > 0.75) ? '#ef4444' : (i >= 2 ? '#f59e0b' : '#10b981');
+      canvasCtx.fillRect(startBarX + i * (barW + barGap), barY, barW, barH);
+    }
+
     canvasCtx.restore();
   }
 
   function drawTopHeaderBanner(cw) {
     if (!state.showTitle) return;
     canvasCtx.save();
-    canvasCtx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
+    canvasCtx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
     const textMetrics = canvasCtx.measureText(state.showTitle);
-    const padX = 24;
+    const padX = 22;
     const bannerW = Math.min(textMetrics.width + (padX * 2), cw - 60);
-    const bannerH = 46;
+    const bannerH = 42;
     const bx = (cw - bannerW) / 2;
-    const by = 30;
+    const by = 26;
 
     canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     canvasCtx.beginPath();
-    canvasCtx.roundRect(bx, by, bannerW, bannerH, 12);
+    canvasCtx.roundRect(bx, by, bannerW, bannerH, 10);
     canvasCtx.fill();
 
     canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
-    canvasCtx.lineWidth = 1.5;
+    canvasCtx.lineWidth = 1.2;
     canvasCtx.stroke();
 
     canvasCtx.fillStyle = '#f8fafc';
@@ -713,13 +961,89 @@
     canvasCtx.restore();
   }
 
-  // --- Recording Engine (Room Owner / Host Only) ---
-  function startRecording() {
+  // Draw Scrolling Lower-Third Ticker
+  function drawScrollingTicker(cw, ch) {
+    if (!state.tickerEnabled || !state.tickerText) return;
+    const barH = 38;
+    const barY = ch - barH - 6;
+
+    canvasCtx.save();
+    // Glass background bar
+    canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+    canvasCtx.fillRect(0, barY, cw, barH);
+
+    canvasCtx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+    canvasCtx.lineWidth = 1;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(0, barY);
+    canvasCtx.lineTo(cw, barY);
+    canvasCtx.stroke();
+
+    // Clip to ticker bar area
+    canvasCtx.beginPath();
+    canvasCtx.rect(0, barY, cw, barH);
+    canvasCtx.clip();
+
+    canvasCtx.font = '600 17px "Plus Jakarta Sans", sans-serif';
+    canvasCtx.fillStyle = '#f1f5f9';
+    canvasCtx.textBaseline = 'middle';
+
+    const textMetrics = canvasCtx.measureText(state.tickerText);
+    const textW = textMetrics.width + 120;
+    state.tickerOffset = (state.tickerOffset + 2) % textW;
+
+    const startX = cw - state.tickerOffset;
+    canvasCtx.fillText(state.tickerText, startX, barY + barH / 2);
+    canvasCtx.fillText(state.tickerText, startX + textW, barY + barH / 2);
+
+    canvasCtx.restore();
+  }
+
+  // --- 3-2-1 Countdown Trigger & Sync ---
+  function startCountdownSequence() {
     if (!state.isHost) {
-      showToast('Only the Room Owner (Host) can start recording', 'error');
+      showToast('Only the Room Owner can start recording', 'error');
       return;
     }
+    if (state.isRecording || state.isCountingDown) return;
 
+    state.isCountingDown = true;
+    countdownOverlay.classList.remove('hidden');
+
+    let count = 3;
+    countdownNumber.textContent = count;
+    playStudioSFX('ding');
+
+    if (state.dataConn && state.dataConn.open) {
+      state.dataConn.send({ type: 'COUNTDOWN', count });
+    }
+
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        countdownNumber.textContent = count;
+        playStudioSFX('ding');
+        if (state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'COUNTDOWN', count });
+        }
+      } else {
+        clearInterval(interval);
+        countdownNumber.textContent = 'REC!';
+        playStudioSFX('chime');
+        if (state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'COUNTDOWN', count: 0 });
+        }
+        setTimeout(() => {
+          countdownOverlay.classList.add('hidden');
+          state.isCountingDown = false;
+          executeStartRecording();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  // --- Recording Engine (Host Only) ---
+  function executeStartRecording() {
     setupAudioMixer();
 
     const canvasStream = studioCanvas.captureStream(30);
@@ -770,12 +1094,12 @@
 
       startTimerInterval();
 
-      // Notify Guest via WebRTC Data Connection
+      // Broadcast start to Guest
       if (state.dataConn && state.dataConn.open) {
         state.dataConn.send({ type: 'RECORDING_START' });
       }
 
-      showToast('Recording started by Room Owner', 'success');
+      showToast('Recording live!', 'success');
     } catch (err) {
       console.error('Failed to start recording:', err);
       showToast('Recording error: ' + err.message, 'error');
@@ -797,7 +1121,7 @@
 
       clearInterval(state.recordTimerInterval);
 
-      // Notify Guest via WebRTC Data Connection
+      // Broadcast stop to Guest
       if (state.dataConn && state.dataConn.open) {
         state.dataConn.send({ type: 'RECORDING_STOP' });
       }
@@ -838,6 +1162,45 @@
     return `${hrs}:${mins}:${secs}`;
   }
 
+  // --- Backstage Chat Messaging ---
+  function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    const msg = text.trim();
+    appendChatMessage('You', msg, true);
+    if (state.dataConn && state.dataConn.open) {
+      state.dataConn.send({
+        type: 'CHAT_MSG',
+        sender: state.userName || (state.isHost ? 'Host' : 'Guest'),
+        text: msg
+      });
+    }
+    chatTextInput.value = '';
+  }
+
+  function appendChatMessage(sender, text, isSelf) {
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + (isSelf ? 'chat-msg-self' : 'chat-msg-remote');
+    bubble.innerHTML = `<div class="chat-sender">${escapeHtml(sender)}</div><div class="chat-text">${escapeHtml(text)}</div>`;
+    chatMessagesContainer.appendChild(bubble);
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+
+    if (!isSelf && chatDrawer.classList.contains('hidden')) {
+      state.unreadChatCount++;
+      chatBadgeCount.classList.remove('hidden');
+      showToast(`💬 Note from ${sender}: "${text.substring(0, 30)}"`, 'info');
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag));
+  }
+
   // --- Layout Switcher (9:16 Vertical <-> 16:9 Landscape) ---
   function toggleLayoutMode() {
     if (state.layoutMode === 'vertical') {
@@ -846,7 +1209,7 @@
       canvasWrapper.classList.add('landscape-mode');
       studioCanvas.width = 1920;
       studioCanvas.height = 1080;
-      layoutModeText.textContent = '16:9 Landscape';
+      layoutModeText.textContent = '16:9';
       hudResolutionTag.textContent = '1920 x 1080 (16:9)';
       showToast('Switched to 16:9 Landscape Mode', 'success');
     } else {
@@ -855,7 +1218,7 @@
       canvasWrapper.classList.add('vertical-mode');
       studioCanvas.width = 1080;
       studioCanvas.height = 1920;
-      layoutModeText.textContent = '9:16 Reels';
+      layoutModeText.textContent = '9:16';
       hudResolutionTag.textContent = '1080 x 1920 (9:16)';
       showToast('Switched to 9:16 Reels Mode', 'success');
     }
@@ -941,19 +1304,21 @@
     state.hostName = hostNameInput.value.trim();
     state.guestName = guestNameInput.value.trim();
     state.showTitle = topicInput.value.trim();
+    if (tickerTextInput) state.tickerText = tickerTextInput.value.trim();
 
-    // If host updates, broadcast update to guest
     if (state.isHost && state.dataConn && state.dataConn.open) {
       state.dataConn.send({
         type: 'HOST_SYNC',
         hostName: state.hostName,
         showTitle: state.showTitle,
+        studioLayout: state.studioLayout,
+        tickerText: state.tickerText,
+        tickerEnabled: state.tickerEnabled,
         isRecording: state.isRecording
       });
     }
   }
 
-  // --- Status & Toast Helpers ---
   function updateStatus(status, text) {
     connectionStatusBadge.className = 'status-badge status-' + status;
     connectionStatusText.textContent = text;
@@ -976,7 +1341,7 @@
     if (enterStudioBtn) enterStudioBtn.addEventListener('click', handleWelcomeSubmit);
     if (closeWelcomeBtn) closeWelcomeBtn.addEventListener('click', handleWelcomeSubmit);
 
-    // Press Enter to submit
+    // Press Enter to submit in welcome inputs
     if (userNameInput) {
       userNameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -994,29 +1359,100 @@
       });
     }
 
-    // Clicking backdrop also enters studio
     welcomeModal.addEventListener('click', (e) => {
       if (e.target === welcomeModal) {
         handleWelcomeSubmit();
       }
     });
 
+    // Studio Layout Mode (Split, Solo Host, Solo Guest, PiP)
+    studioLayoutSelect.addEventListener('change', (e) => {
+      state.studioLayout = e.target.value;
+      showToast(`Layout changed to: ${e.target.options[e.target.selectedIndex].text}`, 'info');
+      if (state.isHost && state.dataConn && state.dataConn.open) {
+        state.dataConn.send({ type: 'LAYOUT_SYNC', layout: state.studioLayout });
+      }
+    });
+
+    // Aspect Ratio Toggle
+    layoutToggleBtn.addEventListener('click', toggleLayoutMode);
+
+    // Audio Sync Delay Slider (Settings)
+    if (audioDelaySlider) {
+      audioDelaySlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        state.audioDelayMs = val;
+        audioDelayValue.textContent = val + ' ms';
+        if (state.audioDelayNode) {
+          state.audioDelayNode.delayTime.value = val / 1000;
+        }
+      });
+    }
+
+    // Soundboard Drawer Toggle
+    soundboardToggleBtn.addEventListener('click', () => {
+      soundboardDrawer.classList.toggle('hidden');
+      chatDrawer.classList.add('hidden');
+    });
+    closeSoundboardBtn.addEventListener('click', () => {
+      soundboardDrawer.classList.add('hidden');
+    });
+
+    // Soundboard SFX Buttons
+    document.querySelectorAll('.sfx-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sfx = btn.getAttribute('data-sfx');
+        playStudioSFX(sfx);
+        showToast(`Sound Effect: ${btn.querySelector('.sfx-name').textContent}`, 'info');
+      });
+    });
+
+    // Backstage Chat Drawer Toggle
+    chatToggleBtn.addEventListener('click', () => {
+      chatDrawer.classList.toggle('hidden');
+      soundboardDrawer.classList.add('hidden');
+      if (!chatDrawer.classList.contains('hidden')) {
+        chatBadgeCount.classList.add('hidden');
+        state.unreadChatCount = 0;
+        chatTextInput.focus();
+      }
+    });
+    closeChatBtn.addEventListener('click', () => {
+      chatDrawer.classList.add('hidden');
+    });
+
+    // Chat Form Submit
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendChatMessage(chatTextInput.value);
+    });
+
     // Branding Drawer Toggle (Mobile & Desktop)
-    const brandingToggleBtn = document.getElementById('brandingToggleBtn');
-    const brandingBar = document.querySelector('.branding-bar');
     if (brandingToggleBtn && brandingBar) {
       brandingToggleBtn.addEventListener('click', () => {
         brandingBar.classList.toggle('is-open');
       });
     }
 
+    // Ticker Toggle Button
+    if (toggleTickerBtn) {
+      toggleTickerBtn.addEventListener('click', () => {
+        state.tickerEnabled = !state.tickerEnabled;
+        toggleTickerBtn.textContent = state.tickerEnabled ? 'Ticker: ON' : 'Ticker: OFF';
+        toggleTickerBtn.classList.toggle('btn-secondary', state.tickerEnabled);
+        toggleTickerBtn.classList.toggle('btn-ghost', !state.tickerEnabled);
+        showToast(state.tickerEnabled ? 'Scrolling ticker enabled' : 'Scrolling ticker disabled', 'info');
+        updateBrandingFromInputs();
+      });
+    }
+
     copyInviteBtn.addEventListener('click', copyInviteLink);
-    layoutToggleBtn.addEventListener('click', toggleLayoutMode);
     toggleMicBtn.addEventListener('click', toggleMic);
     toggleCamBtn.addEventListener('click', toggleCam);
     flipCameraBtn.addEventListener('click', flipCamera);
     swapLayoutBtn.addEventListener('click', swapLayoutPositions);
 
+    // Record Button (Host Only: Starts 3-2-1 Countdown)
     recordToggleBtn.addEventListener('click', () => {
       if (!state.isHost) {
         showToast('Only the Room Owner can start/stop recording', 'error');
@@ -1025,7 +1461,7 @@
       if (state.isRecording) {
         stopRecording();
       } else {
-        startRecording();
+        startCountdownSequence();
       }
     });
 
@@ -1037,9 +1473,9 @@
     hostNameInput.addEventListener('input', updateBrandingFromInputs);
     guestNameInput.addEventListener('input', updateBrandingFromInputs);
     topicInput.addEventListener('input', updateBrandingFromInputs);
+    if (tickerTextInput) tickerTextInput.addEventListener('input', updateBrandingFromInputs);
 
     // Create New Room button (in Join Modal)
-    const createNewRoomBtn = document.getElementById('createNewRoomBtn');
     if (createNewRoomBtn) {
       createNewRoomBtn.addEventListener('click', () => {
         localStorage.removeItem('duocast_host_room');
@@ -1078,7 +1514,7 @@
     gotItGuideBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
   }
 
-  // Reliable Bootstrap (Works whether DOM is already loaded or still loading)
+  // Reliable Bootstrap
   function boot() {
     setupEventListeners();
     setupWelcomeScreen();

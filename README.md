@@ -7,13 +7,20 @@
 
 ## ✨ Features
 
-- **📱 9:16 Vertical Instagram Mode:** Perfect for Instagram Reels, TikTok, and YouTube Shorts (1080 x 1920).
-- **🖥️ 16:9 Landscape Mode:** Side-by-side mode for YouTube videos, Facebook, and podcasts (1920 x 1080).
-- **🔗 1-Click Invite Link:** Host clicks *"Copy Invite Link"* and sends it via WhatsApp or DM. When the co-host clicks the link, they automatically connect with zero configuration.
-- **🎨 Custom Branding & Handle Overlays:** Type your Instagram handles (`@traveller.risha` & `@cohost`) and show title in real time.
-- **🔊 Dual Audio Mixing (Web Audio API):** Merges both participants' audio streams into a single balanced track with noise suppression and echo cancellation.
-- **📥 Local Recording & Instant Download:** Records using `MediaRecorder` directly in the browser and provides instant `.mp4` / `.webm` download with video preview.
-- **⚡ 100% Free & Serverless:** Uses PeerJS free public broker for WebRTC signaling. Requires zero paid servers, zero databases, and zero subscriptions!
+- **📱 9:16 Vertical Instagram Mode & 16:9 Landscape:** Default 1080 x 1920 for Reels, Shorts, and TikTok with one-click toggle to 16:9 for YouTube.
+- **📐 Multi-Layout Switching:** 1-click layout options:
+  - **Split (50/50):** Top/Bottom or Side-by-Side.
+  - **Picture-in-Picture (PiP):** Full-screen host with co-host in a floating corner bubble.
+  - **Solo Host & Solo Co-Host:** Full-screen focus.
+- **🎛️ Audio Sync Delay Slider (0ms – 500ms):** Fix Bluetooth / AirPods lip-sync latency with a live calibration slider in Settings.
+- **🔊 Live Audio VU Meters:** Real-time animated 4-bar equalizers right next to each creator's name on the video canvas.
+- **⏱️ 3-2-1 Recording Countdown:** Visual countdown with sync chime sounds so both participants prepare and speak at the exact same second.
+- **🎉 Creator Soundboard (SFX):** Built-in Web Audio soundboard with Applause 👏, Ding 🔔, Airhorn 🚨, Drumroll 🥁, and Laughter 😂 mixed into the recording.
+- **📢 Scrolling Lower-Third Ticker:** Live marquee banner across the bottom for announcements, handles, and CTAs.
+- **💬 Private Backstage Chat:** Silent text channel between Host and Co-Host over WebRTC data connection.
+- **🔗 1-Click Invite Link & Room Persistence:** Host shares link, co-host joins instantly. Refreshing the browser preserves the active room and host privileges.
+- **📥 Local Recording & Instant Download:** Direct client-side `.mp4` / `.webm` recording with zero watermarks.
+- **⚡ 100% Free & Serverless:** Built for GitHub Pages using WebRTC and PeerJS cloud broker.
 
 ---
 
