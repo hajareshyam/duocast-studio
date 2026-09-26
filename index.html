@@ -161,13 +161,22 @@
             <span>Swap</span>
           </button>
 
-          <!-- Big Record Button -->
-          <button id="recordToggleBtn" class="control-btn record-action-btn" title="Start Recording">
+          <!-- Big Record Button (Host Only) -->
+          <button id="recordToggleBtn" class="control-btn record-action-btn" title="Start Recording (Room Owner Only)">
             <div class="record-btn-core">
               <span class="record-icon-shape"></span>
             </div>
             <span id="recordBtnLabel">Record</span>
           </button>
+
+          <!-- Guest Read-Only Recording Status Badge -->
+          <div id="guestRecordBadge" class="control-btn guest-rec-badge hidden" title="Only the room owner can start/stop recording">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span id="guestRecordLabel">Host Controls Rec</span>
+          </div>
         </div>
       </section>
     </main>
@@ -189,6 +198,46 @@
         </div>
       </div>
     </aside>
+
+    <!-- Welcome & Name Entry Modal (Opens First) -->
+    <div id="welcomeModal" class="modal-backdrop">
+      <div class="modal-card glass-card modal-welcome">
+        <div class="welcome-header">
+          <div class="brand-logo" style="margin: 0 auto 8px;">
+            <span class="logo-dot"></span>
+            <span class="logo-ring"></span>
+          </div>
+          <h3>Welcome to DuoCast Studio</h3>
+          <p id="welcomeSubtitle">Please enter your name or Instagram handle to enter the recording studio.</p>
+        </div>
+        <form id="welcomeForm" class="welcome-form">
+          <div class="form-group">
+            <label for="userNameInput">Your Name or Instagram Handle <span class="required-star">*</span></label>
+            <input type="text" id="userNameInput" placeholder="e.g. @traveller.risha" required autofocus autocomplete="name">
+          </div>
+          
+          <div id="hostOnlyFields" class="form-group">
+            <label for="initialTopicInput">Reel / Show Topic (Optional)</label>
+            <input type="text" id="initialTopicInput" value="Live Travel & Mom-Life Talk 🎙️" placeholder="e.g. 48-Hour Weekend Escapes">
+          </div>
+
+          <div class="role-notice" id="roleNoticeBadge">
+            <span class="badge-role-icon">👑</span>
+            <span id="roleNoticeText">You will enter as <strong>Room Owner (Host)</strong> and control recording.</span>
+          </div>
+
+          <div class="welcome-actions">
+            <button type="submit" id="enterStudioBtn" class="btn btn-primary btn-glow btn-full">
+              <span>Enter Studio</span>
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- Join Room Modal -->
     <div id="joinModal" class="modal-backdrop hidden">

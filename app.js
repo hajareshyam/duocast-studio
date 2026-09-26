@@ -12,13 +12,17 @@
     peerId: null,
     remotePeerId: null,
     activeCall: null,
-    isHost: true,
+    dataConn: null,        // WebRTC Data Connection for syncing names and recording status
+    isHost: true,          // Room Owner = true, Guest = false
     roomCode: '',
+    
+    // User Identity
+    userName: '',
     
     // Media Streams
     localStream: null,
     remoteStream: null,
-    facingMode: 'user', // 'user' or 'environment'
+    facingMode: 'user',    // 'user' or 'environment'
     isMicMuted: false,
     isCamOff: false,
     
@@ -32,7 +36,7 @@
     localAudioSource: null,
     remoteAudioSource: null,
     
-    // Recording
+    // Recording (Host Exclusive)
     mediaRecorder: null,
     recordedChunks: [],
     isRecording: false,
@@ -40,7 +44,7 @@
     recordTimerInterval: null,
     recordedBlob: null,
     
-    // Branding
+    // Branding & Overlay
     hostName: '@traveller.risha',
     guestName: '@guest.creator',
     showTitle: 'Live Travel & Mom-Life Talk 🎙️'
@@ -72,10 +76,25 @@
   const toggleCamBtn = document.getElementById('toggleCamBtn');
   const flipCameraBtn = document.getElementById('flipCameraBtn');
   const swapLayoutBtn = document.getElementById('swapLayoutBtn');
+  
+  // Recording Controls
   const recordToggleBtn = document.getElementById('recordToggleBtn');
   const recordBtnLabel = document.getElementById('recordBtnLabel');
+  const guestRecordBadge = document.getElementById('guestRecordBadge');
+  const guestRecordLabel = document.getElementById('guestRecordLabel');
 
-  // Modals & Controls
+  // Welcome / Onboarding Modal
+  const welcomeModal = document.getElementById('welcomeModal');
+  const welcomeForm = document.getElementById('welcomeForm');
+  const welcomeSubtitle = document.getElementById('welcomeSubtitle');
+  const userNameInput = document.getElementById('userNameInput');
+  const hostOnlyFields = document.getElementById('hostOnlyFields');
+  const initialTopicInput = document.getElementById('initialTopicInput');
+  const roleNoticeBadge = document.getElementById('roleNoticeBadge');
+  const roleNoticeText = document.getElementById('roleNoticeText');
+  const enterStudioBtn = document.getElementById('enterStudioBtn');
+
+  // Other Modals & Controls
   const joinModal = document.getElementById('joinModal');
   const manualRoomCodeInput = document.getElementById('manualRoomCodeInput');
   const confirmJoinBtn = document.getElementById('confirmJoinBtn');
@@ -112,27 +131,88 @@
   const camOnIcon = document.getElementById('camOnIcon');
   const camOffIcon = document.getElementById('camOffIcon');
 
-  // --- Initialization ---
-  async function init() {
-    setupEventListeners();
-    updateBrandingFromInputs();
-    
-    // Check if room code was passed in URL query (e.g. ?room=risha-live)
+  // --- Step 1: Pre-Entry Setup (Prompt Name First) ---
+  function setupWelcomeScreen() {
     const urlParams = new URLSearchParams(window.location.search);
     const requestedRoom = urlParams.get('room');
 
-    await startLocalMedia();
-    populateDeviceList();
+    const savedName = localStorage.getItem('duocast_username') || '';
 
     if (requestedRoom) {
+      // User is joining an existing room as a Guest
       state.isHost = false;
       state.roomCode = requestedRoom;
-      initPeerAsGuest(requestedRoom);
+      
+      welcomeSubtitle.textContent = `You've been invited to join room "${requestedRoom}" as Co-Host.`;
+      roleNoticeBadge.innerHTML = `<span class="badge-role-icon">🎙️</span><span>You are joining as <strong>Co-Host (Guest)</strong>. The Room Owner will manage recording.</span>`;
+      hostOnlyFields.classList.add('hidden');
+      enterStudioBtn.querySelector('span').textContent = 'Join Studio 🎥';
+
+      userNameInput.value = savedName || '@guest.creator';
+      userNameInput.placeholder = 'e.g. @your_instagram_handle';
     } else {
+      // User is creating a new room as Host (Room Owner)
       state.isHost = true;
       const autoRoom = 'duocast-' + Math.random().toString(36).substring(2, 8);
       state.roomCode = autoRoom;
-      initPeerAsHost(autoRoom);
+
+      welcomeSubtitle.textContent = 'Please enter your name or Instagram handle to launch your recording room.';
+      roleNoticeBadge.innerHTML = `<span class="badge-role-icon">👑</span><span>You are the <strong>Room Owner (Host)</strong>. Only you can start and stop recording.</span>`;
+      hostOnlyFields.classList.remove('hidden');
+      enterStudioBtn.querySelector('span').textContent = 'Create Studio 🎙️';
+
+      userNameInput.value = savedName || '@traveller.risha';
+      userNameInput.placeholder = 'e.g. @traveller.risha';
+    }
+
+    // Show welcome modal
+    welcomeModal.classList.remove('hidden');
+    userNameInput.focus();
+  }
+
+  // --- Step 2: Handle Welcome Form Submission & Enter Studio ---
+  async function handleWelcomeSubmit(e) {
+    e.preventDefault();
+    const enteredName = userNameInput.value.trim();
+    if (!enteredName) {
+      showToast('Please enter your name or handle', 'error');
+      return;
+    }
+
+    state.userName = enteredName;
+    localStorage.setItem('duocast_username', enteredName);
+
+    if (state.isHost) {
+      state.hostName = enteredName;
+      hostNameInput.value = enteredName;
+      if (initialTopicInput.value.trim()) {
+        state.showTitle = initialTopicInput.value.trim();
+        topicInput.value = state.showTitle;
+      }
+      // Host has recording button enabled
+      recordToggleBtn.classList.remove('hidden');
+      guestRecordBadge.classList.add('hidden');
+    } else {
+      state.guestName = enteredName;
+      guestNameInput.value = enteredName;
+      // Guest has recording button disabled / badge shown
+      recordToggleBtn.classList.add('hidden');
+      guestRecordBadge.classList.remove('hidden');
+      guestRecordLabel.textContent = 'Host Controls Rec';
+    }
+
+    // Hide welcome modal
+    welcomeModal.classList.add('hidden');
+    showToast(`Welcome, ${enteredName}!`, 'success');
+
+    // Launch media & connection
+    await startLocalMedia();
+    populateDeviceList();
+
+    if (state.isHost) {
+      initPeerAsHost(state.roomCode);
+    } else {
+      initPeerAsGuest(state.roomCode);
     }
 
     // Start Compositor Render Loop
@@ -163,13 +243,11 @@
       state.localStream = stream;
       localVideo.srcObject = stream;
 
-      // Update Audio Mixer if audio context is active
       setupAudioMixer();
-
-      showToast('Camera and microphone ready', 'success');
+      showToast('Camera and microphone connected', 'success');
     } catch (err) {
       console.error('Error accessing camera/mic:', err);
-      showToast('Could not access camera/mic: ' + err.message, 'error');
+      showToast('Camera/mic error: ' + err.message, 'error');
     }
   }
 
@@ -178,33 +256,33 @@
     updateStatus('connecting', 'Creating Room...');
     currentRoomCodeEl.textContent = roomId;
 
-    state.peer = new Peer(roomId, {
-      debug: 1
-    });
+    state.peer = new Peer(roomId, { debug: 1 });
 
     state.peer.on('open', (id) => {
       state.peerId = id;
-      updateStatus('offline', 'Ready for Guest');
-      showToast('Room created! Share the invite link with your co-host.', 'success');
+      updateStatus('offline', 'Ready for Guest (Owner)');
+      showToast('Studio ready! Click "Copy Invite Link" to invite your co-host.', 'success');
     });
 
-    // Listen for incoming call from guest
+    // Accept incoming data connection from guest
+    state.peer.on('connection', (conn) => {
+      setupHostDataConnection(conn);
+    });
+
+    // Listen for incoming media call from guest
     state.peer.on('call', (call) => {
       state.activeCall = call;
-      call.answer(state.localStream); // Answer with our local camera/mic stream
+      call.answer(state.localStream);
 
       call.on('stream', (remoteStream) => {
         state.remoteStream = remoteStream;
         remoteVideo.srcObject = remoteStream;
         setupAudioMixer();
         updateStatus('connected', 'Co-Host Connected');
-        showToast('Co-Host has joined the studio!', 'success');
+        showToast('Co-Host joined the video feed!', 'success');
       });
 
-      call.on('close', () => {
-        handleRemoteDisconnect();
-      });
-
+      call.on('close', handleRemoteDisconnect);
       call.on('error', (err) => {
         console.error('Call error:', err);
         handleRemoteDisconnect();
@@ -214,7 +292,6 @@
     state.peer.on('error', (err) => {
       console.warn('Peer error:', err);
       if (err.type === 'unavailable-id') {
-        // ID taken, generate another one
         const fallbackRoom = 'duocast-' + Math.random().toString(36).substring(2, 8);
         initPeerAsHost(fallbackRoom);
       } else {
@@ -244,7 +321,13 @@
   function connectToHost(hostRoomId) {
     if (!state.localStream) return;
     
-    updateStatus('connecting', 'Calling Room ' + hostRoomId + '...');
+    updateStatus('connecting', 'Calling Room Owner...');
+
+    // 1. Establish Data Channel to sync names and recording state
+    const conn = state.peer.connect(hostRoomId);
+    setupGuestDataConnection(conn);
+
+    // 2. Establish Media Stream Call
     const call = state.peer.call(hostRoomId, state.localStream);
     state.activeCall = call;
 
@@ -256,14 +339,95 @@
       showToast('Connected to studio!', 'success');
     });
 
-    call.on('close', () => {
-      handleRemoteDisconnect();
-    });
-
+    call.on('close', handleRemoteDisconnect);
     call.on('error', (err) => {
       console.error('Call error:', err);
       handleRemoteDisconnect();
     });
+  }
+
+  // --- Data Connection: Host Side ---
+  function setupHostDataConnection(conn) {
+    state.dataConn = conn;
+
+    conn.on('open', () => {
+      // Send host name and show title to the guest
+      conn.send({
+        type: 'HOST_SYNC',
+        hostName: state.hostName,
+        showTitle: state.showTitle,
+        isRecording: state.isRecording
+      });
+    });
+
+    conn.on('data', (data) => {
+      if (data && data.type === 'GUEST_NAME') {
+        state.guestName = data.name;
+        guestNameInput.value = data.name;
+        showToast(`Co-Host "${data.name}" synced`, 'info');
+      }
+    });
+
+    conn.on('close', () => {
+      state.dataConn = null;
+    });
+  }
+
+  // --- Data Connection: Guest Side ---
+  function setupGuestDataConnection(conn) {
+    state.dataConn = conn;
+
+    conn.on('open', () => {
+      // Send our guest name to the host
+      conn.send({
+        type: 'GUEST_NAME',
+        name: state.guestName
+      });
+    });
+
+    conn.on('data', (data) => {
+      if (!data) return;
+
+      if (data.type === 'HOST_SYNC') {
+        state.hostName = data.hostName;
+        state.showTitle = data.showTitle;
+        hostNameInput.value = data.hostName;
+        topicInput.value = data.showTitle;
+        if (data.isRecording) {
+          triggerGuestRecordingUI(true);
+        }
+      } else if (data.type === 'RECORDING_START') {
+        triggerGuestRecordingUI(true);
+        showToast('🔴 Room Owner started recording!', 'success');
+      } else if (data.type === 'RECORDING_STOP') {
+        triggerGuestRecordingUI(false);
+        showToast('⏹️ Room Owner stopped recording', 'info');
+      }
+    });
+
+    conn.on('close', () => {
+      state.dataConn = null;
+    });
+  }
+
+  // Guest UI update when Host records
+  function triggerGuestRecordingUI(isRec) {
+    if (isRec) {
+      guestRecordBadge.classList.add('is-recording');
+      guestRecordLabel.textContent = 'REC (By Host)';
+      recordingTimerBadge.classList.remove('hidden');
+      hudLiveTag.textContent = 'REC ●';
+      hudLiveTag.style.background = '#ef4444';
+      state.recordStartTime = Date.now();
+      startTimerInterval();
+    } else {
+      guestRecordBadge.classList.remove('is-recording');
+      guestRecordLabel.textContent = 'Host Controls Rec';
+      recordingTimerBadge.classList.add('hidden');
+      hudLiveTag.textContent = 'LIVE PREVIEW';
+      hudLiveTag.style.background = 'rgba(0, 0, 0, 0.6)';
+      clearInterval(state.recordTimerInterval);
+    }
   }
 
   function handleRemoteDisconnect() {
@@ -387,7 +551,6 @@
   // Draw an individual video feed with "cover" aspect-ratio preservation
   function drawVideoFeed(videoEl, streamObj, x, y, w, h, nameTag, roleTag) {
     if (streamObj && videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
-      // Aspect fill calculation
       const vw = videoEl.videoWidth;
       const vh = videoEl.videoHeight;
       const videoRatio = vw / vh;
@@ -395,13 +558,11 @@
 
       let sx, sy, sw, sh;
       if (videoRatio > destRatio) {
-        // Video is wider than target area
         sh = vh;
         sw = vh * destRatio;
         sx = (vw - sw) / 2;
         sy = 0;
       } else {
-        // Video is taller than target area
         sw = vw;
         sh = vw / destRatio;
         sx = 0;
@@ -410,20 +571,16 @@
 
       canvasCtx.drawImage(videoEl, sx, sy, sw, sh, x, y, w, h);
     } else {
-      // Empty feed / Waiting for Co-Host card
       drawEmptyPlaceholder(x, y, w, h, roleTag);
     }
 
-    // Draw Name Tag Pill
     drawNameBadge(x + 24, y + h - 54, nameTag);
   }
 
-  // Draw stylish waiting card when someone hasn't joined yet
   function drawEmptyPlaceholder(x, y, w, h, role) {
     canvasCtx.fillStyle = 'rgba(18, 20, 30, 0.95)';
     canvasCtx.fillRect(x, y, w, h);
 
-    // Glowing border around box
     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     canvasCtx.strokeRect(x + 10, y + 10, w - 20, h - 20);
 
@@ -441,7 +598,6 @@
     }
   }
 
-  // Draw name tag badge with glass background
   function drawNameBadge(x, y, text) {
     if (!text) return;
     canvasCtx.save();
@@ -451,7 +607,6 @@
     const badgeW = textMetrics.width + (padX * 2);
     const badgeH = 38;
 
-    // Pill background
     canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     canvasCtx.beginPath();
     canvasCtx.roundRect(x, y, badgeW, badgeH, 10);
@@ -461,7 +616,6 @@
     canvasCtx.lineWidth = 1.5;
     canvasCtx.stroke();
 
-    // Text
     canvasCtx.fillStyle = '#ffffff';
     canvasCtx.textAlign = 'left';
     canvasCtx.textBaseline = 'middle';
@@ -469,7 +623,6 @@
     canvasCtx.restore();
   }
 
-  // Draw top banner on canvas (Title & Live dot)
   function drawTopHeaderBanner(cw) {
     if (!state.showTitle) return;
     canvasCtx.save();
@@ -497,21 +650,23 @@
     canvasCtx.restore();
   }
 
-  // --- Recording Engine ---
+  // --- Recording Engine (Room Owner / Host Only) ---
   function startRecording() {
+    if (!state.isHost) {
+      showToast('Only the Room Owner (Host) can start recording', 'error');
+      return;
+    }
+
     setupAudioMixer();
 
-    // Capture Canvas stream at 30fps
     const canvasStream = studioCanvas.captureStream(30);
 
-    // Merge Audio from our audio destination
     if (state.audioDestination && state.audioDestination.stream.getAudioTracks().length > 0) {
       canvasStream.addTrack(state.audioDestination.stream.getAudioTracks()[0]);
     } else if (state.localStream && state.localStream.getAudioTracks().length > 0) {
       canvasStream.addTrack(state.localStream.getAudioTracks()[0]);
     }
 
-    // Supported Mime Type check (cross-browser Safari / Chrome / Firefox)
     const mimeTypes = [
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
@@ -539,7 +694,7 @@
 
       state.mediaRecorder.onstop = handleRecordingStopped;
 
-      state.mediaRecorder.start(1000); // 1-second chunks
+      state.mediaRecorder.start(1000);
       state.isRecording = true;
       state.recordStartTime = Date.now();
 
@@ -551,7 +706,13 @@
       hudLiveTag.style.background = '#ef4444';
 
       startTimerInterval();
-      showToast('Recording started!', 'success');
+
+      // Notify Guest via WebRTC Data Connection
+      if (state.dataConn && state.dataConn.open) {
+        state.dataConn.send({ type: 'RECORDING_START' });
+      }
+
+      showToast('Recording started by Room Owner', 'success');
     } catch (err) {
       console.error('Failed to start recording:', err);
       showToast('Recording error: ' + err.message, 'error');
@@ -559,6 +720,8 @@
   }
 
   function stopRecording() {
+    if (!state.isHost) return;
+
     if (state.mediaRecorder && state.isRecording) {
       state.mediaRecorder.stop();
       state.isRecording = false;
@@ -570,6 +733,11 @@
       hudLiveTag.style.background = 'rgba(0, 0, 0, 0.6)';
 
       clearInterval(state.recordTimerInterval);
+
+      // Notify Guest via WebRTC Data Connection
+      if (state.dataConn && state.dataConn.open) {
+        state.dataConn.send({ type: 'RECORDING_STOP' });
+      }
     }
   }
 
@@ -580,14 +748,12 @@
     const videoUrl = URL.createObjectURL(state.recordedBlob);
     recordedPlayback.src = videoUrl;
 
-    // File info
     const sizeInMB = (state.recordedBlob.size / (1024 * 1024)).toFixed(2);
     recordedFileSizeBadge.textContent = 'Size: ' + sizeInMB + ' MB';
 
     const durationSec = Math.floor((Date.now() - state.recordStartTime) / 1000);
     recordedDurationBadge.textContent = 'Duration: ' + formatSeconds(durationSec);
 
-    // Download button
     const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
     downloadVideoAnchor.href = videoUrl;
     downloadVideoAnchor.download = 'DuoCast_' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
@@ -701,7 +867,7 @@
   function copyInviteLink() {
     const inviteUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(state.roomCode);
     navigator.clipboard.writeText(inviteUrl).then(() => {
-      showToast('Invite link copied to clipboard! Send to your co-host.', 'success');
+      showToast('Invite link copied! Send it to your co-host.', 'success');
     }).catch(() => {
       prompt('Copy this invite link:', inviteUrl);
     });
@@ -712,6 +878,16 @@
     state.hostName = hostNameInput.value.trim();
     state.guestName = guestNameInput.value.trim();
     state.showTitle = topicInput.value.trim();
+
+    // If host updates, broadcast update to guest
+    if (state.isHost && state.dataConn && state.dataConn.open) {
+      state.dataConn.send({
+        type: 'HOST_SYNC',
+        hostName: state.hostName,
+        showTitle: state.showTitle,
+        isRecording: state.isRecording
+      });
+    }
   }
 
   // --- Status & Toast Helpers ---
@@ -734,6 +910,8 @@
 
   // --- Event Listeners Setup ---
   function setupEventListeners() {
+    welcomeForm.addEventListener('submit', handleWelcomeSubmit);
+
     copyInviteBtn.addEventListener('click', copyInviteLink);
     layoutToggleBtn.addEventListener('click', toggleLayoutMode);
     toggleMicBtn.addEventListener('click', toggleMic);
@@ -742,11 +920,19 @@
     swapLayoutBtn.addEventListener('click', swapLayoutPositions);
 
     recordToggleBtn.addEventListener('click', () => {
+      if (!state.isHost) {
+        showToast('Only the Room Owner can start/stop recording', 'error');
+        return;
+      }
       if (state.isRecording) {
         stopRecording();
       } else {
         startRecording();
       }
+    });
+
+    guestRecordBadge.addEventListener('click', () => {
+      showToast('Only the Room Owner (Host) can record', 'info');
     });
 
     // Branding Inputs
@@ -786,5 +972,8 @@
   }
 
   // Launch on DOM Ready
-  window.addEventListener('DOMContentLoaded', init);
+  window.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    setupWelcomeScreen();
+  });
 })();
