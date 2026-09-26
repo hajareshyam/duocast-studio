@@ -91,8 +91,8 @@
   const hostOnlyFields = document.getElementById('hostOnlyFields');
   const initialTopicInput = document.getElementById('initialTopicInput');
   const roleNoticeBadge = document.getElementById('roleNoticeBadge');
-  const roleNoticeText = document.getElementById('roleNoticeText');
   const enterStudioBtn = document.getElementById('enterStudioBtn');
+  const closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
 
   // Other Modals & Controls
   const joinModal = document.getElementById('joinModal');
@@ -167,16 +167,27 @@
 
     // Show welcome modal
     welcomeModal.classList.remove('hidden');
+    welcomeModal.style.display = 'flex';
     userNameInput.focus();
+  }
+
+  function closeWelcomeModal() {
+    if (welcomeModal) {
+      welcomeModal.classList.add('hidden');
+      welcomeModal.style.display = 'none';
+    }
   }
 
   // --- Step 2: Handle Welcome Form Submission & Enter Studio ---
   async function handleWelcomeSubmit(e) {
-    e.preventDefault();
-    const enteredName = userNameInput.value.trim();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+
+    let enteredName = userNameInput.value.trim();
     if (!enteredName) {
-      showToast('Please enter your name or handle', 'error');
-      return;
+      enteredName = state.isHost ? '@traveller.risha' : '@guest.creator';
+      userNameInput.value = enteredName;
     }
 
     state.userName = enteredName;
@@ -185,29 +196,31 @@
     if (state.isHost) {
       state.hostName = enteredName;
       hostNameInput.value = enteredName;
-      if (initialTopicInput.value.trim()) {
+      if (initialTopicInput && initialTopicInput.value.trim()) {
         state.showTitle = initialTopicInput.value.trim();
         topicInput.value = state.showTitle;
       }
-      // Host has recording button enabled
       recordToggleBtn.classList.remove('hidden');
       guestRecordBadge.classList.add('hidden');
     } else {
       state.guestName = enteredName;
       guestNameInput.value = enteredName;
-      // Guest has recording button disabled / badge shown
       recordToggleBtn.classList.add('hidden');
       guestRecordBadge.classList.remove('hidden');
       guestRecordLabel.textContent = 'Host Controls Rec';
     }
 
-    // Hide welcome modal
-    welcomeModal.classList.add('hidden');
+    // Hide welcome modal immediately
+    closeWelcomeModal();
     showToast(`Welcome, ${enteredName}!`, 'success');
 
     // Launch media & connection
-    await startLocalMedia();
-    populateDeviceList();
+    try {
+      await startLocalMedia();
+      populateDeviceList();
+    } catch (mediaErr) {
+      console.warn('Media startup warning:', mediaErr);
+    }
 
     if (state.isHost) {
       initPeerAsHost(state.roomCode);
@@ -911,6 +924,15 @@
   // --- Event Listeners Setup ---
   function setupEventListeners() {
     welcomeForm.addEventListener('submit', handleWelcomeSubmit);
+    if (enterStudioBtn) enterStudioBtn.addEventListener('click', handleWelcomeSubmit);
+    if (closeWelcomeBtn) closeWelcomeBtn.addEventListener('click', handleWelcomeSubmit);
+
+    // Clicking backdrop also enters studio
+    welcomeModal.addEventListener('click', (e) => {
+      if (e.target === welcomeModal) {
+        handleWelcomeSubmit();
+      }
+    });
 
     copyInviteBtn.addEventListener('click', copyInviteLink);
     layoutToggleBtn.addEventListener('click', toggleLayoutMode);
@@ -971,9 +993,15 @@
     gotItGuideBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
   }
 
-  // Launch on DOM Ready
-  window.addEventListener('DOMContentLoaded', () => {
+  // Reliable Bootstrap (Works whether DOM is already loaded or still loading)
+  function boot() {
     setupEventListeners();
     setupWelcomeScreen();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
