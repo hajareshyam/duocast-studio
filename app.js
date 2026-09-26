@@ -194,6 +194,7 @@
   const recordedPlayback = document.getElementById('recordedPlayback');
   const downloadVideoAnchor = document.getElementById('downloadVideoAnchor');
   const downloadAudioAnchor = document.getElementById('downloadAudioAnchor');
+  const recordNewTakeBtn = document.getElementById('recordNewTakeBtn');
   const closeResultModalBtn = document.getElementById('closeResultModalBtn');
   const discardVideoBtn = document.getElementById('discardVideoBtn');
   const recordedFileSizeBadge = document.getElementById('recordedFileSizeBadge');
@@ -563,7 +564,14 @@
         showToast('▶️ Room Owner resumed recording', 'success');
       } else if (data.type === 'RECORDING_STOP') {
         triggerGuestRecordingUI(false);
-        showToast('⏹️ Room Owner stopped recording', 'info');
+        stopAllMediaTracks();
+        if (teleprompterDrawer) teleprompterDrawer.classList.add('hidden');
+        if (soundboardDrawer) soundboardDrawer.classList.add('hidden');
+        if (brandingBar) brandingBar.classList.remove('is-open');
+        showToast('⏹️ Recording stopped. All media and tools stopped.', 'info');
+      } else if (data.type === 'RESTART_MEDIA') {
+        startLocalMedia();
+        showToast('🎬 Room Owner started a new take! Camera active.', 'success');
       } else if (data.type === 'CHAT_MSG') {
         appendChatMessage(data.sender, data.text, false);
       }
@@ -1131,12 +1139,20 @@
   }
 
   // --- 3-2-1 Countdown Trigger & Sync ---
-  function startCountdownSequence() {
+  async function startCountdownSequence() {
     if (!state.isHost) {
       showToast('Only the Room Owner can start recording', 'error');
       return;
     }
     if (state.isRecording || state.isCountingDown) return;
+
+    // If media was stopped after previous recording, restart it now
+    if (!state.localStream) {
+      await startLocalMedia();
+      if (state.dataConn && state.dataConn.open) {
+        state.dataConn.send({ type: 'RESTART_MEDIA' });
+      }
+    }
 
     state.isCountingDown = true;
     countdownOverlay.classList.remove('hidden');
@@ -1300,15 +1316,25 @@
       pauseBtnLabel.textContent = 'Pause';
 
       recordingTimerBadge.classList.add('hidden');
-      hudLiveTag.textContent = 'LIVE PREVIEW';
+      recordingTimerDisplay.textContent = '00:00:00';
+      hudLiveTag.textContent = 'STOPPED';
       hudLiveTag.style.background = 'rgba(0, 0, 0, 0.6)';
 
       clearInterval(state.recordTimerInterval);
+
+      // Stop everything: camera, mic, screen share, teleprompter, utility drawers
+      stopAllMediaTracks();
+
+      if (teleprompterDrawer) teleprompterDrawer.classList.add('hidden');
+      if (soundboardDrawer) soundboardDrawer.classList.add('hidden');
+      if (brandingBar) brandingBar.classList.remove('is-open');
 
       // Broadcast stop to Guest
       if (state.dataConn && state.dataConn.open) {
         state.dataConn.send({ type: 'RECORDING_STOP' });
       }
+
+      showToast('Recording stopped. All media & tools stopped.', 'info');
     }
   }
 
@@ -1416,9 +1442,67 @@
     }
   }
 
+  // --- Stop All Media & Streaming Hardware ---
+  function stopAllMediaTracks() {
+    // 1. Stop local camera and microphone hardware tracks
+    if (state.localStream) {
+      state.localStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+      state.localStream = null;
+    }
+    if (localVideo) localVideo.srcObject = null;
+
+    // 2. Stop screen share hardware tracks
+    if (state.screenStream) {
+      state.screenStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+      state.screenStream = null;
+    }
+    state.isScreenSharing = false;
+    if (screenVideo) screenVideo.srcObject = null;
+    if (toggleScreenBtn) toggleScreenBtn.classList.remove('is-sharing');
+    if (screenBtnLabel) screenBtnLabel.textContent = 'Screen';
+
+    // 3. Stop teleprompter auto-scrolling
+    if (state.isPrompterScrolling) {
+      clearInterval(state.prompterScrollInterval);
+      state.isPrompterScrolling = false;
+      if (toggleScrollPrompterBtn) {
+        toggleScrollPrompterBtn.textContent = '▶️ Scroll';
+        toggleScrollPrompterBtn.classList.remove('btn-secondary');
+        toggleScrollPrompterBtn.classList.add('btn-primary');
+      }
+    }
+    resetPrompterScroll();
+
+    // 4. Update UI buttons to off state
+    state.isMicMuted = true;
+    state.isCamOff = true;
+    if (toggleMicBtn) toggleMicBtn.classList.add('active-off');
+    if (micOnIcon) micOnIcon.classList.add('hidden');
+    if (micOffIcon) micOffIcon.classList.remove('hidden');
+
+    if (toggleCamBtn) toggleCamBtn.classList.add('active-off');
+    if (camOnIcon) camOnIcon.classList.add('hidden');
+    if (camOffIcon) camOffIcon.classList.remove('hidden');
+  }
+
   // --- Device Controls & Toggles ---
-  function toggleMic() {
-    if (!state.localStream) return;
+  async function toggleMic() {
+    if (!state.localStream) {
+      await startLocalMedia();
+      state.isMicMuted = false;
+      toggleMicBtn.classList.remove('active-off');
+      micOnIcon.classList.remove('hidden');
+      micOffIcon.classList.add('hidden');
+      return;
+    }
     const audioTrack = state.localStream.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
@@ -1432,8 +1516,15 @@
     }
   }
 
-  function toggleCam() {
-    if (!state.localStream) return;
+  async function toggleCam() {
+    if (!state.localStream) {
+      await startLocalMedia();
+      state.isCamOff = false;
+      toggleCamBtn.classList.remove('active-off');
+      camOnIcon.classList.remove('hidden');
+      camOffIcon.classList.add('hidden');
+      return;
+    }
     const videoTrack = state.localStream.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
@@ -1879,9 +1970,28 @@
       settingsModal.classList.add('hidden');
     });
 
-    // Result Modal
-    closeResultModalBtn.addEventListener('click', () => recordingResultModal.classList.add('hidden'));
-    discardVideoBtn.addEventListener('click', () => recordingResultModal.classList.add('hidden'));
+    // Result Modal & Video Playback Clean Dismissal
+    function closeRecordingResultModal() {
+      recordingResultModal.classList.add('hidden');
+      if (recordedPlayback) {
+        recordedPlayback.pause();
+        recordedPlayback.currentTime = 0;
+      }
+    }
+
+    closeResultModalBtn.addEventListener('click', closeRecordingResultModal);
+    discardVideoBtn.addEventListener('click', closeRecordingResultModal);
+
+    if (recordNewTakeBtn) {
+      recordNewTakeBtn.addEventListener('click', async () => {
+        closeRecordingResultModal();
+        await startLocalMedia();
+        showToast('Camera & mic restarted for new take! 🎬', 'success');
+        if (state.dataConn && state.dataConn.open) {
+          state.dataConn.send({ type: 'RESTART_MEDIA' });
+        }
+      });
+    }
 
     // Hotkeys Modal
     if (hotkeysModalBtn) {
