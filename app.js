@@ -923,9 +923,26 @@
 
   // --- Event Listeners Setup ---
   function setupEventListeners() {
-    welcomeForm.addEventListener('submit', handleWelcomeSubmit);
     if (enterStudioBtn) enterStudioBtn.addEventListener('click', handleWelcomeSubmit);
     if (closeWelcomeBtn) closeWelcomeBtn.addEventListener('click', handleWelcomeSubmit);
+
+    // Press Enter to submit
+    if (userNameInput) {
+      userNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleWelcomeSubmit();
+        }
+      });
+    }
+    if (initialTopicInput) {
+      initialTopicInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleWelcomeSubmit();
+        }
+      });
+    }
 
     // Clicking backdrop also enters studio
     welcomeModal.addEventListener('click', (e) => {

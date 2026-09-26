@@ -211,10 +211,10 @@
           <h3>Welcome to DuoCast Studio</h3>
           <p id="welcomeSubtitle">Please enter your name or Instagram handle to enter the recording studio.</p>
         </div>
-        <form id="welcomeForm" class="welcome-form">
+        <div id="welcomeForm" class="welcome-form">
           <div class="form-group">
-            <label for="userNameInput">Your Name or Instagram Handle <span class="required-star">*</span></label>
-            <input type="text" id="userNameInput" placeholder="e.g. @traveller.risha" required autofocus autocomplete="name">
+            <label for="userNameInput">Your Name or Instagram Handle</label>
+            <input type="text" id="userNameInput" value="@traveller.risha" placeholder="e.g. @traveller.risha" autofocus autocomplete="name">
           </div>
           
           <div id="hostOnlyFields" class="form-group">
@@ -228,7 +228,7 @@
           </div>
 
           <div class="welcome-actions">
-            <button type="submit" id="enterStudioBtn" class="btn btn-primary btn-glow btn-full">
+            <button type="button" id="enterStudioBtn" class="btn btn-primary btn-glow btn-full">
               <span>Enter Studio</span>
               <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -236,7 +236,7 @@
               </svg>
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
 
