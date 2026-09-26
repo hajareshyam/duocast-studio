@@ -134,35 +134,51 @@
   // --- Step 1: Pre-Entry Setup (Prompt Name First) ---
   function setupWelcomeScreen() {
     const urlParams = new URLSearchParams(window.location.search);
-    const requestedRoom = urlParams.get('room');
-
+    let requestedRoom = urlParams.get('room');
+    const savedHostRoom = localStorage.getItem('duocast_host_room') || '';
     const savedName = localStorage.getItem('duocast_username') || '';
 
-    if (requestedRoom) {
-      // User is joining an existing room as a Guest
-      state.isHost = false;
-      state.roomCode = requestedRoom;
-      
-      welcomeSubtitle.textContent = `You've been invited to join room "${requestedRoom}" as Co-Host.`;
-      roleNoticeBadge.innerHTML = `<span class="badge-role-icon">🎙️</span><span>You are joining as <strong>Co-Host (Guest)</strong>. The Room Owner will manage recording.</span>`;
-      hostOnlyFields.classList.add('hidden');
-      enterStudioBtn.querySelector('span').textContent = 'Join Studio 🎥';
+    // If no room in URL, check if host already had an active room saved
+    if (!requestedRoom && savedHostRoom) {
+      requestedRoom = savedHostRoom;
+      const newUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(savedHostRoom);
+      window.history.replaceState({ room: savedHostRoom }, '', newUrl);
+    }
 
-      userNameInput.value = savedName || '@guest.creator';
-      userNameInput.placeholder = 'e.g. @your_instagram_handle';
+    if (requestedRoom) {
+      state.roomCode = requestedRoom;
+
+      // Check if user is the Room Owner who created this room
+      if (requestedRoom === savedHostRoom) {
+        state.isHost = true;
+        welcomeSubtitle.textContent = `Welcome back to your room "${requestedRoom}".`;
+        roleNoticeBadge.innerHTML = `<span class="badge-role-icon">👑</span><span>You are the <strong>Room Owner (Host)</strong>. Only you can start and stop recording.</span>`;
+        hostOnlyFields.classList.remove('hidden');
+        enterStudioBtn.querySelector('span').textContent = 'Enter Studio 🎙️';
+        userNameInput.value = savedName || '@traveller.risha';
+      } else {
+        state.isHost = false;
+        welcomeSubtitle.textContent = `You've been invited to join room "${requestedRoom}" as Co-Host.`;
+        roleNoticeBadge.innerHTML = `<span class="badge-role-icon">🎙️</span><span>You are joining as <strong>Co-Host (Guest)</strong>. The Room Owner will manage recording.</span>`;
+        hostOnlyFields.classList.add('hidden');
+        enterStudioBtn.querySelector('span').textContent = 'Join Studio 🎥';
+        userNameInput.value = savedName || '@guest.creator';
+      }
     } else {
-      // User is creating a new room as Host (Room Owner)
+      // First-time room creation
       state.isHost = true;
       const autoRoom = 'duocast-' + Math.random().toString(36).substring(2, 8);
       state.roomCode = autoRoom;
+      localStorage.setItem('duocast_host_room', autoRoom);
+
+      const newUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(autoRoom);
+      window.history.replaceState({ room: autoRoom }, '', newUrl);
 
       welcomeSubtitle.textContent = 'Please enter your name or Instagram handle to launch your recording room.';
       roleNoticeBadge.innerHTML = `<span class="badge-role-icon">👑</span><span>You are the <strong>Room Owner (Host)</strong>. Only you can start and stop recording.</span>`;
       hostOnlyFields.classList.remove('hidden');
       enterStudioBtn.querySelector('span').textContent = 'Create Studio 🎙️';
-
       userNameInput.value = savedName || '@traveller.risha';
-      userNameInput.placeholder = 'e.g. @traveller.risha';
     }
 
     // Show welcome modal
@@ -194,6 +210,10 @@
     localStorage.setItem('duocast_username', enteredName);
 
     if (state.isHost) {
+      localStorage.setItem('duocast_host_room', state.roomCode);
+      const newUrl = window.location.origin + window.location.pathname + '?room=' + encodeURIComponent(state.roomCode);
+      window.history.replaceState({ room: state.roomCode }, '', newUrl);
+
       state.hostName = enteredName;
       hostNameInput.value = enteredName;
       if (initialTopicInput && initialTopicInput.value.trim()) {
@@ -315,8 +335,13 @@
     state.peer.on('error', (err) => {
       console.warn('Peer error:', err);
       if (err.type === 'unavailable-id') {
-        const fallbackRoom = 'duocast-' + Math.random().toString(36).substring(2, 8);
-        initPeerAsHost(fallbackRoom);
+        updateStatus('connecting', 'Reconnecting to room...');
+        // Retry connection to same room in 2 seconds in case previous socket is closing
+        setTimeout(() => {
+          if (!state.peer || state.peer.destroyed) {
+            initPeerAsHost(roomId);
+          }
+        }, 2000);
       } else {
         updateStatus('offline', 'Connection Error');
       }
@@ -1012,6 +1037,15 @@
     hostNameInput.addEventListener('input', updateBrandingFromInputs);
     guestNameInput.addEventListener('input', updateBrandingFromInputs);
     topicInput.addEventListener('input', updateBrandingFromInputs);
+
+    // Create New Room button (in Join Modal)
+    const createNewRoomBtn = document.getElementById('createNewRoomBtn');
+    if (createNewRoomBtn) {
+      createNewRoomBtn.addEventListener('click', () => {
+        localStorage.removeItem('duocast_host_room');
+        window.location.href = window.location.origin + window.location.pathname;
+      });
+    }
 
     // Join Modal
     joinDifferentRoomBtn.addEventListener('click', () => joinModal.classList.remove('hidden'));
