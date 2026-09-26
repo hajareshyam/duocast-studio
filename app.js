@@ -255,6 +255,11 @@
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       state.localStream = stream;
       localVideo.srcObject = stream;
+      localVideo.muted = true;
+      try {
+        const p = localVideo.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (err) {}
 
       setupAudioMixer();
       showToast('Camera and microphone connected', 'success');
@@ -290,6 +295,11 @@
       call.on('stream', (remoteStream) => {
         state.remoteStream = remoteStream;
         remoteVideo.srcObject = remoteStream;
+        remoteVideo.muted = true;
+        try {
+          const p = remoteVideo.play();
+          if (p !== undefined) p.catch(() => {});
+        } catch (err) {}
         setupAudioMixer();
         updateStatus('connected', 'Co-Host Connected');
         showToast('Co-Host joined the video feed!', 'success');
@@ -347,6 +357,11 @@
     call.on('stream', (remoteStream) => {
       state.remoteStream = remoteStream;
       remoteVideo.srcObject = remoteStream;
+      remoteVideo.muted = true;
+      try {
+        const p = remoteVideo.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (err) {}
       setupAudioMixer();
       updateStatus('connected', 'Connected to Host');
       showToast('Connected to studio!', 'success');
@@ -563,7 +578,17 @@
 
   // Draw an individual video feed with "cover" aspect-ratio preservation
   function drawVideoFeed(videoEl, streamObj, x, y, w, h, nameTag, roleTag) {
-    if (streamObj && videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+    if (streamObj && videoEl) {
+      if (videoEl.paused) {
+        try {
+          const p = videoEl.play();
+          if (p !== undefined) p.catch(() => {});
+        } catch (e) {}
+      }
+    }
+
+    const isVideoAlive = streamObj && videoEl && videoEl.videoWidth > 0 && !videoEl.ended;
+    if (isVideoAlive) {
       const vw = videoEl.videoWidth;
       const vh = videoEl.videoHeight;
       const videoRatio = vw / vh;
@@ -950,6 +975,15 @@
         handleWelcomeSubmit();
       }
     });
+
+    // Branding Drawer Toggle (Mobile & Desktop)
+    const brandingToggleBtn = document.getElementById('brandingToggleBtn');
+    const brandingBar = document.querySelector('.branding-bar');
+    if (brandingToggleBtn && brandingBar) {
+      brandingToggleBtn.addEventListener('click', () => {
+        brandingBar.classList.toggle('is-open');
+      });
+    }
 
     copyInviteBtn.addEventListener('click', copyInviteLink);
     layoutToggleBtn.addEventListener('click', toggleLayoutMode);

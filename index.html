@@ -45,6 +45,12 @@
           </svg>
           <span id="layoutModeText">9:16 Reels</span>
         </button>
+        <button id="brandingToggleBtn" class="btn btn-ghost btn-icon" title="Edit Names & Topic Title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        </button>
         <button id="settingsModalBtn" class="btn btn-ghost btn-icon" title="Audio/Video Settings">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
@@ -100,8 +106,8 @@
 
         <!-- Hidden raw video feeds used for canvas compositing -->
         <div class="hidden-media-sinks" aria-hidden="true">
-          <video id="localVideo" autoplay playsinline muted></video>
-          <video id="remoteVideo" autoplay playsinline></video>
+          <video id="localVideo" autoplay playsinline webkit-playsinline muted></video>
+          <video id="remoteVideo" autoplay playsinline webkit-playsinline muted></video>
         </div>
       </section>
 
