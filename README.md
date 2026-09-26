@@ -28,59 +28,53 @@
 - **💬 Private Backstage Chat:** Silent text channel between Host and Co-Host over WebRTC data connection.
 - **🔗 1-Click Invite Link & Room Persistence:** Host shares link, co-host joins instantly. Refreshing the browser preserves the active room and host privileges.
 - **📥 Local Recording & Instant Download:** Direct client-side recording with zero watermarks.
-- **⚡ 100% Free & Serverless:** Built for GitHub Pages using WebRTC and PeerJS cloud broker.
+- **⚡ 100% Free & Serverless:** Built for Cloudflare Pages & GitHub Pages using WebRTC and PeerJS cloud broker.
 
 ---
 
-## 🚀 How to Deploy to GitHub Pages (2 Minutes)
+## ⚡ How to Deploy to Cloudflare Pages (100% Free Forever)
 
-Because this app uses only standard web technologies (`index.html`, `style.css`, and `app.js`), it can be hosted completely free on **GitHub Pages**:
+**Cloudflare Pages** offers unlimited bandwidth, instant global CDN edge caching, and automated Git CI/CD deployments for free:
 
-### Step 1: Create a GitHub Repository
-1. Go to [github.com/new](https://github.com/new).
-2. Repository name: `duocast-studio` (or any name you prefer).
-3. Set visibility to **Public**.
-4. Click **Create repository**.
+### Method 1: Git Integration (Zero-Maintenance Auto Deploys)
+1. Push your repository to GitHub: `https://github.com/hajareshyam/duocast-studio`.
+2. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+3. Select your `duocast-studio` repository.
+4. Set the build configuration:
+   - **Framework preset:** `Vite`
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+5. Click **Save and Deploy**. In under 60 seconds, Cloudflare will deploy your studio with a free custom SSL domain (e.g., `https://duocast-studio.pages.dev`). Every future `git push` to `main` deploys automatically!
 
-### Step 2: Push the Files to GitHub
-Open your terminal in this project folder and run:
-```bash
-git init
-git add .
-git commit -m "Initial commit of DuoCast Studio"
-git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/duocast-studio.git
-git push -u origin main
-```
-*(Or simply drag and drop `index.html`, `style.css`, and `app.js` into GitHub's web interface via the **Upload files** button).*
-
-### Step 3: Enable GitHub Pages
-1. Go to your repository on GitHub.
-2. Click **Settings** (tab at the top right).
-3. In the left sidebar, click **Pages**.
-4. Under **Build and deployment > Branch**:
-   - Select **`main`** from the branch dropdown.
-   - Folder: **`/(root)`**.
-   - Click **Save**.
-
-### Step 4: Access Your Live Link!
-Within 30–60 seconds, GitHub will provide your live URL:
-`https://YOUR_GITHUB_USERNAME.github.io/duocast-studio/`
-
-Both you and your co-host can open this link on iPhone, Android, Mac, or Windows.
+### Method 2: Direct CLI Deployment (Wrangler)
+If you prefer deploying directly from your terminal:
+1. Log in to your Cloudflare account once:
+   ```bash
+   npx wrangler login
+   ```
+2. Build and deploy:
+   ```bash
+   npm run build
+   npm run deploy
+   ```
 
 ---
 
-## 🧪 Testing Locally (On Your Computer)
-
-To test the application locally on your machine:
+## 🛠️ Local Development
 
 ```bash
-# Start a local static HTTP server
-python3 -m http.server 8000
+# Install dependencies
+npm install
+
+# Start local dev server with Hot Module Replacement (HMR)
+npm run dev
+
+# Build production bundle
+npm run build
+
+# Preview production build locally
+npm run preview
 ```
-Then open [http://localhost:8000](http://localhost:8000) in your browser.
-*(Tip: Open a second Incognito window or test on a phone using your local Wi-Fi IP to test 2-person connection).*
 
 ---
 
